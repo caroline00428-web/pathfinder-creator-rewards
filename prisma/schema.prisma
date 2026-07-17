@@ -1,0 +1,186 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums (represented as String fields for SQLite compatibility) ──
+// Role:              ADMIN | CREATOR
+// Platform:          YOUTUBE | TIKTOK | BOTH
+// CreatorStatus:     ACTIVE | INACTIVE
+// VideoStatus:       PENDING | APPROVED | REJECTED | SYNCED | INELIGIBLE
+// Eligibility:       ELIGIBLE | INELIGIBLE | PENDING
+// ViewSource:        MANUAL | API
+// TransactionType:   MILESTONE_REWARD | MANUAL_ADJUSTMENT | SHOP_REDEMPTION | REFUND
+// OrderStatus:       PENDING | EXPORTED | SENT | FAILED
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String   @unique
+  passwordHash String
+  role         String   @default("CREATOR") // ADMIN | CREATOR
+  createdAt    DateTime @default(now())
+  creator      Creator?
+}
+
+model Creator {
+  id             String             @id @default(cuid())
+  userId         String             @unique
+  user           User               @relation(fields: [userId], references: [id])
+  displayName    String
+  creatorCode    String             @unique
+  playerId       String?            @unique
+  playerIdLocked Boolean            @default(false)
+  discordId      String?
+  youtubeChannelId String?
+  status         String             @default("ACTIVE") // ACTIVE | INACTIVE
+  wallet         CreditWallet?
+  videos         Video[]
+  claims         MilestoneClaim[]
+  transactions   CreditTransaction[]
+  orders         RewardOrder[]
+  createdAt      DateTime           @default(now())
+}
+
+model Campaign {
+  id          String      @id @default(cuid())
+  name        String
+  platform    String      // YOUTUBE | TIKTOK | BOTH
+  startTime   DateTime
+  endTime     DateTime
+  active      Boolean     @default(true)
+  description String?
+  milestones  Milestone[]
+  videos      Video[]
+  createdAt   DateTime    @default(now())
+}
+
+model Video {
+  id                String              @id @default(cuid())
+  creatorId         String
+  creator           Creator             @relation(fields: [creatorId], references: [id])
+  campaignId        String
+  campaign          Campaign            @relation(fields: [campaignId], references: [id])
+  platform          String              // YOUTUBE | TIKTOK
+  url               String
+  externalVideoId   String?
+  title             String?
+  uploadTime        DateTime
+  viewCount         Int                 @default(0)
+  status            String              @default("PENDING") // PENDING | APPROVED | REJECTED | SYNCED | INELIGIBLE
+  eligibilityStatus String              @default("PENDING") // ELIGIBLE | INELIGIBLE | PENDING
+  lastSyncedAt      DateTime?
+  submittedAt       DateTime            @default(now())
+  viewHistory       ViewCountHistory[]
+  claims            MilestoneClaim[]
+
+  @@unique([creatorId, url])
+}
+
+model ViewCountHistory {
+  id         String   @id @default(cuid())
+  videoId    String
+  video      Video    @relation(fields: [videoId], references: [id])
+  viewCount  Int
+  source     String   // MANUAL | API
+  recordedBy String?
+  recordedAt DateTime @default(now())
+}
+
+model Milestone {
+  id             String           @id @default(cuid())
+  campaignId     String?
+  campaign       Campaign?        @relation(fields: [campaignId], references: [id])
+  platform       String           // YOUTUBE | TIKTOK
+  viewThreshold  Int
+  creditsAwarded Int
+  active         Boolean          @default(true)
+  claims         MilestoneClaim[]
+  createdAt      DateTime         @default(now())
+}
+
+model MilestoneClaim {
+  id             String    @id @default(cuid())
+  creatorId      String
+  creator        Creator   @relation(fields: [creatorId], references: [id])
+  videoId        String
+  video          Video     @relation(fields: [videoId], references: [id])
+  milestoneId    String
+  milestone      Milestone @relation(fields: [milestoneId], references: [id])
+  platform       String    // YOUTUBE | TIKTOK
+  creditsAwarded Int
+  claimedAt      DateTime  @default(now())
+
+  @@unique([videoId, milestoneId])
+}
+
+model CreditWallet {
+  id        String  @id @default(cuid())
+  creatorId String  @unique
+  creator   Creator @relation(fields: [creatorId], references: [id])
+  balance   Int     @default(0)
+}
+
+model CreditTransaction {
+  id             String   @id @default(cuid())
+  creatorId      String
+  creator        Creator  @relation(fields: [creatorId], references: [id])
+  amount         Int      // positive = credit, negative = debit
+  type           String   // MILESTONE_REWARD | MANUAL_ADJUSTMENT | SHOP_REDEMPTION | REFUND
+  reason         String?
+  relatedVideoId String?
+  relatedOrderId String?
+  createdAt      DateTime @default(now())
+}
+
+model ShopItem {
+  id          String            @id @default(cuid())
+  gameItemId  String
+  itemName    String
+  creditCost  Int
+  quantity    Int               @default(-1) // -1 = unlimited
+  description String?
+  active      Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+}
+
+model RewardOrder {
+  id              String            @id @default(cuid())
+  creatorId       String
+  creator         Creator           @relation(fields: [creatorId], references: [id])
+  playerId        String            // snapshot of creator's playerId at order time
+  totalCreditCost Int
+  status          String            @default("PENDING") // PENDING | EXPORTED | SENT | FAILED
+  exportBatchId   String?
+  exportBatch     ExportBatch?      @relation(fields: [exportBatchId], references: [id])
+  items           RewardOrderItem[]
+  createdAt       DateTime          @default(now())
+}
+
+model RewardOrderItem {
+  id         String      @id @default(cuid())
+  orderId    String
+  order      RewardOrder @relation(fields: [orderId], references: [id])
+  gameItemId String
+  itemName   String
+  quantity   Int
+  creditCost Int         // unit cost at time of order
+}
+
+model ExportBatch {
+  id         String        @id @default(cuid())
+  exportedBy String
+  exportedAt DateTime      @default(now())
+  status     String        @default("pending")
+  fileName   String?
+  orders     RewardOrder[]
+  orderCount Int           @default(0)
+}
