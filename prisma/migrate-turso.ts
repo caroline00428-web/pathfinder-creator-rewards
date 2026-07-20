@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS User (
   username TEXT UNIQUE NOT NULL,
   passwordHash TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'CREATOR',
-  createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
 CREATE TABLE IF NOT EXISTS Creator (
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS Creator (
   discordId TEXT,
   youtubeChannelId TEXT,
   status TEXT NOT NULL DEFAULT 'ACTIVE',
-  createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
 CREATE TABLE IF NOT EXISTS Campaign (
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS Campaign (
   endTime TEXT NOT NULL,
   active INTEGER NOT NULL DEFAULT 1,
   description TEXT,
-  createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
 CREATE TABLE IF NOT EXISTS Video (
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS Video (
   status TEXT NOT NULL DEFAULT 'PENDING',
   eligibilityStatus TEXT NOT NULL DEFAULT 'PENDING',
   lastSyncedAt TEXT,
-  submittedAt TEXT NOT NULL DEFAULT (datetime('now')),
+  submittedAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   UNIQUE(creatorId, url)
 );
 
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS ViewCountHistory (
   viewCount INTEGER NOT NULL,
   source TEXT NOT NULL,
   recordedBy TEXT,
-  recordedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  recordedAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
 CREATE TABLE IF NOT EXISTS Milestone (
@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS Milestone (
   viewThreshold INTEGER NOT NULL,
   creditsAwarded INTEGER NOT NULL,
   active INTEGER NOT NULL DEFAULT 1,
-  createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
 CREATE TABLE IF NOT EXISTS MilestoneClaim (
@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS MilestoneClaim (
   milestoneId TEXT NOT NULL REFERENCES Milestone(id),
   platform TEXT NOT NULL,
   creditsAwarded INTEGER NOT NULL,
-  claimedAt TEXT NOT NULL DEFAULT (datetime('now')),
+  claimedAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   UNIQUE(videoId, milestoneId)
 );
 
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS CreditTransaction (
   reason TEXT,
   relatedVideoId TEXT,
   relatedOrderId TEXT,
-  createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
 CREATE TABLE IF NOT EXISTS ShopItem (
@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS ShopItem (
   quantity INTEGER NOT NULL DEFAULT -1,
   description TEXT,
   active INTEGER NOT NULL DEFAULT 1,
-  createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
 CREATE TABLE IF NOT EXISTS RewardOrder (
@@ -129,7 +129,7 @@ CREATE TABLE IF NOT EXISTS RewardOrder (
   totalCreditCost INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'PENDING',
   exportBatchId TEXT REFERENCES ExportBatch(id),
-  createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
 CREATE TABLE IF NOT EXISTS RewardOrderItem (
@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS RewardOrderItem (
 CREATE TABLE IF NOT EXISTS ExportBatch (
   id TEXT PRIMARY KEY,
   exportedBy TEXT NOT NULL,
-  exportedAt TEXT NOT NULL DEFAULT (datetime('now')),
+  exportedAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   status TEXT NOT NULL DEFAULT 'pending',
   fileName TEXT,
   orderCount INTEGER NOT NULL DEFAULT 0
