@@ -1,25 +1,32 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 
 export async function GET() {
-  try {
-    // Test basic query
-    const userCount = await db.user.count();
-    const creatorCount = await db.creator.count();
-    const adminUser = await db.user.findFirst({ where: { username: "admin" }, select: { username: true, role: true } });
+  const result: any = {
+    turso: !!process.env.TURSO_DATABASE_URL,
+    node: process.version,
+  };
 
-    return NextResponse.json({
-      ok: true,
-      turso: !!process.env.TURSO_DATABASE_URL,
-      userCount,
-      creatorCount,
-      adminUser,
-    });
+  // Test if adapter can be loaded
+  try {
+    const mod = require("@prisma/adapter-libsql");
+    result.adapterExports = Object.keys(mod);
+    result.adapterLoaded = true;
   } catch (e: any) {
-    return NextResponse.json({
-      ok: false,
-      error: e.message,
-      turso: !!process.env.TURSO_DATABASE_URL,
-    }, { status: 500 });
+    result.adapterLoaded = false;
+    result.adapterError = e.message;
   }
+
+  // Test DB connection
+  try {
+    const { db } = await import("@/lib/db");
+    const userCount = await (db as any).user.count();
+    result.dbOk = true;
+    result.userCount = userCount;
+    result.adminExists = !!(await (db as any).user.findFirst({ where: { username: "admin" } }));
+  } catch (e: any) {
+    result.dbOk = false;
+    result.dbError = e.message;
+  }
+
+  return NextResponse.json(result);
 }
