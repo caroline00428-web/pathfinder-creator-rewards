@@ -17,12 +17,11 @@ function getClient(): PrismaClient {
   const tursoToken = process.env.TURSO_AUTH_TOKEN;
 
   if (tursoUrl && tursoToken) {
-    // Prisma 6 adapter accepts config directly (not a pre-created client)
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { PrismaLibSQL } = require("@prisma/adapter-libsql");
     const adapter = new PrismaLibSQL({ url: tursoUrl, authToken: tursoToken });
     globalForPrisma.prisma = new PrismaClient({ adapter: adapter as any });
-    console.log("✅ Turso database connected");
+    console.log("✅ Turso connected");
   } else {
     globalForPrisma.prisma = new PrismaClient();
   }
