@@ -11,16 +11,16 @@ function getClient(): PrismaClient {
   const tursoToken = process.env.TURSO_AUTH_TOKEN;
 
   if (tursoUrl && tursoToken) {
+    // Prisma requires a valid DATABASE_URL at module load time.
+    // The adapter handles the real connection — this is just to satisfy validation.
+    process.env.DATABASE_URL = process.env.DATABASE_URL || "file:./dummy.db";
+
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { createClient } = require("@libsql/client");
     const { PrismaLibSQL } = require("@prisma/adapter-libsql");
     const client = createClient({ url: tursoUrl, authToken: tursoToken });
     const adapter = new PrismaLibSQL(client);
-    globalForPrisma.prisma = new PrismaClient({
-      adapter: adapter as any,
-      // Skip migration check — not supported by Turso HTTP API
-      datasourceUrl: tursoUrl,
-    } as any);
+    globalForPrisma.prisma = new PrismaClient({ adapter: adapter as any });
     console.log("✅ Turso database connected via adapter");
   } else {
     globalForPrisma.prisma = new PrismaClient();
