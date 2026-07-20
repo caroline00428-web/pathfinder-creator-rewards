@@ -1,3 +1,9 @@
+// Prisma requires DATABASE_URL to be set at module load time.
+// On Vercel with Turso adapter, this is a dummy value — the adapter handles the real connection.
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = "file:./dummy.db";
+}
+
 import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
