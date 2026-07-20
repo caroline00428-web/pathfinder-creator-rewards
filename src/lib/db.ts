@@ -12,8 +12,8 @@ function getClient(): PrismaClient {
 
   if (tursoUrl && tursoToken) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { PrismaLibSql } = require("@prisma/adapter-libsql");
-    const adapter = new PrismaLibSql({ url: tursoUrl, authToken: tursoToken });
+    const { PrismaLibSQL } = require("@prisma/adapter-libsql");
+    const adapter = new PrismaLibSQL({ url: tursoUrl, authToken: tursoToken });
     globalForPrisma.prisma = new PrismaClient({ adapter: adapter as any });
     console.log("✅ Turso database connected via adapter");
   } else {
