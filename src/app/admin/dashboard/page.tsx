@@ -36,7 +36,22 @@ export default async function AdminDashboard() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Admin Dashboard</h2>
+      {/* Hero Banner */}
+      <div className="mb-6 relative rounded-2xl overflow-hidden h-32 bg-gray-900">
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-30"
+          style={{ backgroundImage: "url(/pathfinder-hero.jpg)", backgroundPosition: "center 30%" }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-900/80 to-transparent" />
+        <div className="relative z-10 flex items-center h-full px-6">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-purple-400 mb-1">Galaxy Defense</p>
+            <h1 className="text-xl font-extrabold text-white">Pathfinder Program · Admin</h1>
+          </div>
+        </div>
+      </div>
+
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         {stats.map((stat) => (

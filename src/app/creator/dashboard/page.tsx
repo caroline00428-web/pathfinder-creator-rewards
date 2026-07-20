@@ -104,11 +104,27 @@ export default function CreatorDashboard() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">
-          Welcome{profile?.displayName ? `, ${profile.displayName}` : ""}!
-        </h2>
-        <Link href="/creator/submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-500 transition-colors">
+      {/* Hero Banner */}
+      <div className="mb-6 relative rounded-2xl overflow-hidden h-40 md:h-48 bg-gray-900">
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-40"
+          style={{ backgroundImage: "url(/pathfinder-hero.jpg)", backgroundPosition: "center 30%" }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/60 to-transparent" />
+        <div className="relative z-10 flex items-center h-full px-6 md:px-8">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-purple-400 mb-1">Galaxy Defense · Pathfinder Program</p>
+            <h1 className="text-2xl md:text-3xl font-extrabold text-white">
+              Welcome{profile?.displayName ? `, ${profile.displayName}` : ""}!
+            </h1>
+            <p className="text-sm text-gray-400 mt-1">Create content, earn milestones, redeem epic rewards.</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold text-gray-900">📊 Overview</h2>
+        <Link href="/creator/submit" className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-purple-500 hover:to-indigo-500 transition-all shadow-md">
           🎬 Submit Video
         </Link>
       </div>
