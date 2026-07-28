@@ -41,6 +41,7 @@ model Creator {
   discordId      String?
   youtubeChannelId String?
   status         String             @default("ACTIVE")
+  rewardScheme   String?
   wallet         CreditWallet?
   videos         Video[]
   claims         MilestoneClaim[]
