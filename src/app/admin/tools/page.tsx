@@ -30,7 +30,7 @@ export default function AdminToolsPage() {
 
     setResettingRewards(true);
     try {
-      const res = await fetch("/api/admin/reset-special-rewards", { method: "POST" });
+      const res = await fetch("/api/admin/fix-data-and-reset", { method: "POST" });
       const data = await res.json();
       setResetResult(data);
       console.log("Reset result:", data);
@@ -133,9 +133,11 @@ export default function AdminToolsPage() {
                   {resetResult.message}
                 </p>
                 <ul className="text-sm text-gray-700 space-y-1">
-                  <li>• Applications reset: {resetResult.applicationsReset}</li>
-                  <li>• Special reward transactions: {resetResult.specialRewardTransactions}</li>
-                  <li>• ⚠️ {resetResult.warning}</li>
+                  <li>• Applications reset: {resetResult.rewardsReset}</li>
+                  {resetResult.dataFixed && (
+                    <li>• Data fixed: {Object.entries(resetResult.dataFixed).map(([k, v]: [string, any]) => `${k} (${v})`).join(", ")}</li>
+                  )}
+                  <li>• ⚠️ Credit wallets not auto-reverted (manual review if needed)</li>
                 </ul>
               </>
             )}
