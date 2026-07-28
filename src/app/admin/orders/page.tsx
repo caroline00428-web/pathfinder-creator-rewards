@@ -36,8 +36,19 @@ export default function AdminOrdersPage() {
   }, []);
 
   async function handleMarkSent(orderId: string) {
-    await fetch(`/api/orders/${orderId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "SENT" }) });
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: "SENT" } : o));
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "SENT" })
+      });
+      if (!res.ok) throw new Error("Failed to mark sent");
+      const updated = await res.json();
+      setOrders(prev => prev.map(o => o.id === orderId ? updated : o));
+      alert("✅ Marked SENT + email sent to creator");
+    } catch (e) {
+      alert("❌ Failed to mark sent");
+    }
   }
 
   async function handleExport() {

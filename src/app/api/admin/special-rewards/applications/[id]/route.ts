@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { sendRewardEmail } from "@/lib/send-reward-email";
 
 export async function PUT(
   req: NextRequest,
@@ -32,13 +33,16 @@ export async function PUT(
 
   try {
     const result = await db.$transaction(async (tx) => {
-      // Re-read inside transaction to prevent double-credit race
+      // Re-read inside transaction
       const current = await tx.specialRewardApplication.findUnique({
         where: { id },
-        include: { reward: true },
+        include: { reward: true, creator: true },
       });
-      if (!current || current.status !== "PENDING") {
-        throw new Error("ALREADY_PROCESSED");
+      if (!current) throw new Error("NOT_FOUND");
+
+      // Only allow changes if not already SENT/REJECTED
+      if (current.status === "SENT" || current.status === "REJECTED") {
+        throw new Error("FINALIZED");
       }
 
       const updated = await tx.specialRewardApplication.update({
@@ -46,7 +50,8 @@ export async function PUT(
         data: { status, adminNotes: adminNotes || null, reviewedAt: new Date() },
       });
 
-      if (status === "APPROVED") {
+      // Only credit when approving from PENDING → APPROVED
+      if (status === "APPROVED" && current.status === "PENDING") {
         await tx.creditWallet.upsert({
           where: { creatorId: current.creatorId },
           create: { creatorId: current.creatorId, balance: current.reward.diamonds },
@@ -65,10 +70,31 @@ export async function PUT(
       return updated;
     });
 
+    // Send email AFTER transaction (outside tx block)
+    if (status === "SENT") {
+      const app = await db.specialRewardApplication.findUnique({
+        where: { id },
+        include: { creator: { include: { user: true } }, reward: true },
+      });
+      if (app?.creator.user.email) {
+        try {
+          await sendRewardEmail(app.creator.user.email, "SPECIAL", {
+            diamonds: app.reward.diamonds,
+            rewardName: app.reward.name,
+          });
+        } catch (emailErr) {
+          console.error("Email send failed, but application updated:", emailErr);
+        }
+      }
+    }
+
     return NextResponse.json({ success: true, application: result });
   } catch (e: any) {
-    if (e.message === "ALREADY_PROCESSED") {
-      return NextResponse.json({ error: "Application has already been processed by another admin." }, { status: 409 });
+    if (e.message === "NOT_FOUND") {
+      return NextResponse.json({ error: "Application not found" }, { status: 404 });
+    }
+    if (e.message === "FINALIZED") {
+      return NextResponse.json({ error: "Cannot modify application that has been SENT or REJECTED." }, { status: 400 });
     }
     throw e;
   }

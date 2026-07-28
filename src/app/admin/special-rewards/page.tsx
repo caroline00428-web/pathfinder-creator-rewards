@@ -47,8 +47,18 @@ export default function AdminSpecialRewardsPage() {
     if (filterStatus) params.set("status", filterStatus);
     if (filterType) params.set("rewardType", filterType);
     fetch(`/api/admin/special-rewards/applications?${params}`)
-      .then(r => r.json())
-      .then(setApplications)
+      .then(r => {
+        if (!r.ok) throw new Error(`API error: ${r.status}`);
+        return r.json();
+      })
+      .then(data => {
+        console.log("[Admin] Loaded applications:", data);
+        setApplications(Array.isArray(data) ? data : []);
+      })
+      .catch(e => {
+        console.error("[Admin] Failed to load applications:", e);
+        setApplications([]);
+      })
       .finally(() => setLoading(false));
   }
 
@@ -185,10 +195,10 @@ export default function AdminSpecialRewardsPage() {
                   </td>
                   <td className="px-4 py-3 font-medium text-indigo-600">{app.reward.diamonds.toLocaleString()}</td>
                   <td className="px-4 py-3 text-xs text-gray-500">{app.campaign.name}</td>
-                  <td className="px-4 py-3 text-xs text-gray-500 max-w-[200px]">
+                  <td className="px-4 py-3 text-xs text-gray-500 max-w-[300px]">
                     {app.followerCount && <span>Followers: {app.followerCount.toLocaleString()}<br/></span>}
                     {app.profileUrl && <span>URL: {app.profileUrl.slice(0, 40)}...<br/></span>}
-                    {app.videoId && <span>Video: {app.videoId.slice(-8)}<br/></span>}
+                    {app.videoId && <span className="text-gray-600">🎬 Video: {app.videoId.slice(-8)}<br/></span>}
                     {app.notes && <span className="text-gray-700">Note: {app.notes.slice(0, 60)}</span>}
                   </td>
                   <td className="px-4 py-3">
