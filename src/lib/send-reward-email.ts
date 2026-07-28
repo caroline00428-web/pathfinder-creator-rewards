@@ -14,11 +14,16 @@ export async function sendRewardEmail(
     SHOP: "📦 Your Reward Order is Ready!",
   };
 
-  const texts = {
-    SPECIAL: `Hi Creator,\n\nCongratulations! You've earned ${data.diamonds} 💎 for "${data.rewardName}"!\n\nCheck your game account to claim your reward.\n\nGalaxy Defense Creator Program`,
-    MILESTONE: `Hi Creator,\n\nCongratulations! You reached ${data.views} views! 🚀\n\nYou've earned ${data.diamonds} 💎!\n\nLog into your game account to claim.\n\nGalaxy Defense Creator Program`,
-    SHOP: `Hi Creator,\n\nYour reward order is ready! 🎁\n\nRedemption Code: ${data.code}\nItems: ${data.items.join(", ")}\n\nValid for 30 days.\n\nGalaxy Defense Creator Program`,
-  };
+  // Build text based on type to avoid evaluating undefined properties
+  let text = "";
+
+  if (type === "SPECIAL") {
+    text = `Hi Creator,\n\nCongratulations! You've earned ${data.diamonds} 💎 for "${data.rewardName}"!\n\nCheck your game account to claim your reward.\n\nGalaxy Defense Creator Program`;
+  } else if (type === "MILESTONE") {
+    text = `Hi Creator,\n\nCongratulations! You reached ${data.views} views! 🚀\n\nYou've earned ${data.diamonds} 💎!\n\nLog into your game account to claim.\n\nGalaxy Defense Creator Program`;
+  } else if (type === "SHOP") {
+    text = `Hi Creator,\n\nYour reward order is ready! 🎁\n\nRedemption Code: ${data.code}\nItems: ${data.items?.join(", ") || "N/A"}\n\nValid for 30 days.\n\nGalaxy Defense Creator Program`;
+  }
 
   // Validate email
   if (!to || to.trim() === "") {
@@ -49,9 +54,9 @@ export async function sendRewardEmail(
 
     const result = await transporter.sendMail({
       from: process.env.GMAIL_USER,
-      to,  // 发给真实创作者
+      to,
       subject: subjects[type],
-      text: texts[type],
+      text,
     });
 
     console.log(`[Email] ✅ SUCCESS - Message ID: ${result.messageId}`);
