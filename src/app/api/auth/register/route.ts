@@ -16,10 +16,27 @@ export async function POST(req: NextRequest) {
     const { username, email, password, displayName, creatorCode } = await req.json();
 
     if (!username || !email || !password || !displayName || !creatorCode) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // Input validation
+    if (username.length < 3 || username.length > 30) {
+      return NextResponse.json({ error: "Username must be 3-30 characters" }, { status: 400 });
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      return NextResponse.json({ error: "Username must only contain letters, numbers, and underscores" }, { status: 400 });
+    }
+    if (password.length < 8) {
+      return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+    }
+    if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+      return NextResponse.json({ error: "Password must contain at least one letter and one number" }, { status: 400 });
+    }
+    if (displayName.length > 50) {
+      return NextResponse.json({ error: "Display name too long" }, { status: 400 });
+    }
+    if (creatorCode.length > 30) {
+      return NextResponse.json({ error: "Creator code too long" }, { status: 400 });
     }
 
     // Check existing

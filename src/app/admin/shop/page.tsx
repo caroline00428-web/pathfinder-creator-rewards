@@ -16,6 +16,10 @@ export default function AdminShopPage() {
   const [items, setItems] = useState<ShopItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [csvText, setCsvText] = useState("");
+  const [importMsg, setImportMsg] = useState("");
+  const [importing, setImporting] = useState(false);
   const [form, setForm] = useState({ gameItemId: "", itemName: "", creditCost: "", quantity: "-1", description: "" });
   const [error, setError] = useState("");
 
@@ -45,6 +49,78 @@ export default function AdminShopPage() {
     }
   }
 
+  async function handleImport() {
+    setImporting(true);
+    setImportMsg("");
+    const text = csvText.trim();
+    if (!text) { setImporting(false); return; }
+
+    const lines = text.split("\n").filter(l => l.trim());
+    // Auto-detect: tab-separated or comma-separated?
+    const sep = text.includes("\t") ? "\t" : ",";
+
+    // Detect if first line is header (contains non-numeric fields like "名称"/"Name"/"ID")
+    const firstLine = lines[0].split(sep).map(s => s.trim());
+    const hasHeader = firstLine.some(h =>
+      h.includes("名称") || h.toLowerCase() === "name" || h === "ID" || h === "_id" || h === "itemName" || h.includes("description")
+    );
+
+    const dataLines = hasHeader ? lines.slice(1) : lines;
+
+    // Column mapping for known header names
+    let idCol = 0, nameCol = 1, costCol = 2, qtyCol = 3, descCol = 4;
+    if (hasHeader) {
+      for (let i = 0; i < firstLine.length; i++) {
+        const h = firstLine[i].toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (h === "id" || h === "id" || h === "gameitemid") idCol = i;
+        else if (h.includes("name") || h.includes("名称")) nameCol = i;
+        else if (h.includes("score") || h.includes("credit") || h.includes("积分") || h.includes("cost")) costCol = i;
+        else if (h.includes("qty") || h.includes("quantity") || h.includes("限购")) qtyCol = i;
+        else if (h.includes("desc") || h.includes("描述")) descCol = i;
+      }
+    }
+
+    const items = [];
+    for (const line of dataLines) {
+      const parts = line.split(sep).map(s => s.trim().replace(/^"|"$/g, ""));
+      if (parts.length < 3) continue;
+      const id = parts[idCol];
+      const name = parts[nameCol];
+      const cost = parts[costCol];
+      // Skip header rows that slip through, or rows without a numeric cost
+      if (!id || !name || isNaN(Number(cost)) || Number(cost) <= 0) continue;
+      items.push({
+        gameItemId: id,
+        itemName: name,
+        creditCost: cost,
+        quantity: parts[qtyCol] || "-1",
+        description: parts[descCol] || "",
+      });
+    }
+
+    if (items.length === 0) {
+      setImportMsg("❌ No valid items found. Paste tab-separated data (ID, Name, Cost columns required).");
+      setImporting(false);
+      return;
+    }
+
+    const res = await fetch("/api/shop/bulk-import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setImportMsg(`✅ ${data.message}`);
+      setCsvText("");
+      const r = await fetch("/api/shop");
+      setItems(await r.json());
+    } else {
+      setImportMsg(`❌ ${data.error || "Import failed"}`);
+    }
+    setImporting(false);
+  }
+
   async function toggleActive(item: ShopItem) {
     await fetch(`/api/shop/${item.id}`, {
       method: "PUT",
@@ -58,11 +134,34 @@ export default function AdminShopPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Shop Management</h2>
-        <button onClick={() => setShowForm(!showForm)}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-500 transition-colors">
-          {showForm ? "Cancel" : "+ Add Item"}
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => { setShowImport(!showImport); setShowForm(false); }}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-500 transition-colors">
+            {showImport ? "Cancel" : "📥 Import"}
+          </button>
+          <button onClick={() => { setShowForm(!showForm); setShowImport(false); }}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-500 transition-colors">
+            {showForm ? "Cancel" : "+ Add Item"}
+          </button>
+        </div>
       </div>
+
+      {showImport && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6 space-y-3">
+          <h3 className="font-semibold text-gray-900">Import Shop Items</h3>
+          <p className="text-xs text-gray-500">Paste tab-separated data (from spreadsheet). Auto-detects headers. Columns: ID, 充值名称, 描述, 充值积分, 限购次数</p>
+          <textarea value={csvText} onChange={e => setCsvText(e.target.value)} rows={8}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            placeholder={`10003\t新手礼包3\t新手礼包3\t30\t1\n10004\t限时礼包1\t限时礼包1\t50\t1\n10005\t钻石充值1\t钻石充值1\t100\t-1`} />
+          {importMsg && (
+            <p className={`text-sm ${importMsg.startsWith("✅") ? "text-green-600" : "text-red-600"}`}>{importMsg}</p>
+          )}
+          <button onClick={handleImport} disabled={importing || !csvText.trim()}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-500 disabled:opacity-50 transition-colors">
+            {importing ? "Importing..." : "Import Items"}
+          </button>
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={handleCreate} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6 space-y-4">

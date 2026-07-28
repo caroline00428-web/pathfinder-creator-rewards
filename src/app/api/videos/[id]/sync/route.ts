@@ -10,12 +10,23 @@ export async function POST(
 ) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
-  if (!session || !session.user.creatorId) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
+  // Get or find creator by userId
+  let creator = await db.creator.findFirst({ where: { userId: session.user.id } });
+  if (!creator && session.user.role === "ADMIN") {
+    creator = await db.creator.create({
+      data: { userId: session.user.id, displayName: session.user.username || "Admin", creatorCode: "ADMIN" + session.user.id.slice(-4).toUpperCase() },
+    });
+    await db.creditWallet.create({ data: { creatorId: creator.id, balance: 0 } });
+  }
+  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 403 });
+  const creatorId = creator.id;
+
   const video = await db.video.findUnique({ where: { id } });
-  if (!video || video.creatorId !== session.user.creatorId) {
+  if (!video || video.creatorId !== creatorId) {
     return NextResponse.json({ error: "Video not found" }, { status: 404 });
   }
 
@@ -87,6 +98,10 @@ export async function POST(
       lastSyncedAt: updated.lastSyncedAt,
     });
   } catch (error: any) {
-    return NextResponse.json({ error: `Sync failed: ${error.message}` }, { status: 500 });
+    const msg = error.message || String(error);
+    const hint = msg.includes("fetch failed")
+      ? "Network error: cannot reach YouTube API. Check internet connection and YOUTUBE_API_KEY restrictions."
+      : `Unexpected error: ${msg}`;
+    return NextResponse.json({ error: `Sync failed: ${hint}` }, { status: 500 });
   }
 }

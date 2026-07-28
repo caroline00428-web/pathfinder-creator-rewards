@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { getOrCreateCreator } from "@/lib/auth-utils";
 import { extractYouTubeId } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || !session.user.creatorId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  const creator = await getOrCreateCreator();
+  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 403 });
 
   const { url, platform } = await req.json();
   if (!url || !platform) {
@@ -74,10 +75,14 @@ export async function POST(req: NextRequest) {
       requiresManualEntry: false,
     });
   } catch (error: any) {
+    const msg = error.message || String(error);
+    const hint = msg.includes("fetch failed")
+      ? "Network error: cannot reach YouTube API. Check your internet connection or YOUTUBE_API_KEY restrictions (IP/Referrer)."
+      : `Unexpected error: ${msg}`;
     return NextResponse.json({
       platform: "YOUTUBE",
       videoId,
-      message: `Fetch failed: ${error.message}. Please enter manually.`,
+      message: `${hint} Please enter manually.`,
       requiresManualEntry: true,
     });
   }

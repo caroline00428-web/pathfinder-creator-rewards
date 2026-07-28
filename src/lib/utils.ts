@@ -51,8 +51,6 @@ export function formatDate(date: Date | string | null | undefined): string {
     year: "numeric",
     month: "short",
     day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
   });
 }
 
@@ -81,4 +79,31 @@ export function getStatusColor(status: string): string {
     INACTIVE: "bg-gray-100 text-gray-800",
   };
   return colors[status] ?? "bg-gray-100 text-gray-800";
+}
+
+// Shop category detection from gameItemId prefix
+const CATEGORY_MAP: Record<string, string> = {
+  "10": "Newbie Packs",
+  "11": "Limited Time Packs",
+  "12": "Diamonds",
+  "13": "Passes & Memberships",
+  "14": "Level Fund",
+  "15": "Clearance Packs",
+  "16": "Rebuild",
+  "17": "Core Chessboard",
+  "18": "Kindling",
+  "19": "Exploration & Merchant",
+  "20": "Deep Space",
+  "21": "Radar Supply",
+  "22": "Upgrade Supply",
+  "23": "Refine Supply",
+};
+
+export function detectCategory(gameItemId: string): string {
+  const prefix = gameItemId.substring(0, 2);
+  return CATEGORY_MAP[prefix] || "Other";
+}
+
+export function getAllCategories(): string[] {
+  return [...new Set(Object.values(CATEGORY_MAP))].sort();
 }

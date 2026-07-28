@@ -17,7 +17,7 @@ datasource db {
 // VideoStatus:       PENDING | APPROVED | REJECTED | SYNCED | INELIGIBLE
 // Eligibility:       ELIGIBLE | INELIGIBLE | PENDING
 // ViewSource:        MANUAL | API
-// TransactionType:   MILESTONE_REWARD | MANUAL_ADJUSTMENT | SHOP_REDEMPTION | REFUND
+// TransactionType:   MILESTONE_REWARD | MANUAL_ADJUSTMENT | SHOP_REDEMPTION | REFUND | SPECIAL_REWARD
 // OrderStatus:       PENDING | EXPORTED | SENT | FAILED
 
 model User {
@@ -41,11 +41,13 @@ model Creator {
   discordId      String?
   youtubeChannelId String?
   status         String             @default("ACTIVE") // ACTIVE | INACTIVE
+  rewardScheme   String?            // null = unselected, DIAMOND, POINTS — locked after first claim
   wallet         CreditWallet?
   videos         Video[]
   claims         MilestoneClaim[]
   transactions   CreditTransaction[]
   orders         RewardOrder[]
+  specialRewardApplications SpecialRewardApplication[]
   createdAt      DateTime           @default(now())
 }
 
@@ -59,6 +61,8 @@ model Campaign {
   description String?
   milestones  Milestone[]
   videos      Video[]
+  specialRewards SpecialReward[]
+  specialRewardApplications SpecialRewardApplication[]
   createdAt   DateTime    @default(now())
 }
 
@@ -118,7 +122,7 @@ model MilestoneClaim {
   creditsAwarded Int
   claimedAt      DateTime  @default(now())
 
-  @@unique([videoId, milestoneId])
+  @@unique([creatorId, milestoneId])
 }
 
 model CreditWallet {
@@ -146,6 +150,7 @@ model ShopItem {
   itemName    String
   creditCost  Int
   quantity    Int               @default(-1) // -1 = unlimited
+  category    String?           // auto-detected from gameItemId prefix
   description String?
   active      Boolean           @default(true)
   createdAt   DateTime          @default(now())
@@ -182,4 +187,59 @@ model ExportBatch {
   fileName   String?
   orders     RewardOrder[]
   orderCount Int           @default(0)
+}
+
+model SpecialReward {
+  id           String                      @id @default(cuid())
+  campaignId   String
+  campaign     Campaign                    @relation(fields: [campaignId], references: [id])
+  rewardType   String                      // REGISTRATION | PARTICIPATION | DILIGENCE | STAR_CREATOR | AI_COMIC
+  name         String
+  description  String
+  diamonds     Int
+  active       Boolean                     @default(true)
+  createdAt    DateTime                    @default(now())
+  applications SpecialRewardApplication[]
+}
+
+model SpecialRewardApplication {
+  id            String        @id @default(cuid())
+  creatorId     String
+  creator       Creator       @relation(fields: [creatorId], references: [id])
+  rewardId      String
+  reward        SpecialReward @relation(fields: [rewardId], references: [id])
+  campaignId    String
+  campaign      Campaign      @relation(fields: [campaignId], references: [id])
+  videoId       String?       // for AI_COMIC: link to specific video
+  followerCount Int?          // for STAR_CREATOR: self-reported
+  profileUrl    String?       // for STAR_CREATOR: profile page URL
+  notes         String?       // creator notes
+  adminNotes    String?
+  status        String        @default("PENDING") // PENDING | APPROVED | REJECTED
+  createdAt     DateTime      @default(now())
+  reviewedAt    DateTime?
+
+  @@unique([creatorId, rewardId, videoId])
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CreatorAccount {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  password     String    // plaintext for email delivery
+  passwordHash String
+  creatorCode  String    @unique
+  discordName  String?
+  email        String?
+  used         Boolean   @default(false)
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
 }

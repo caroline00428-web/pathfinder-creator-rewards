@@ -36,6 +36,7 @@ export async function POST() {
       csv,
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Export failed" }, { status: 500 });
+    console.error("Export error:", error);
+    return NextResponse.json({ error: "Export failed. Please try again." }, { status: 500 });
   }
 }

@@ -1,31 +1,29 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
-  const result: any = {
-    turso: !!process.env.TURSO_DATABASE_URL,
-    node: process.version,
-  };
+export async function GET(req: NextRequest) {
+  // Protected: only accessible with debug secret or in development
+  const debugSecret = process.env.DEBUG_SECRET;
+  const providedSecret = req.nextUrl.searchParams.get("secret");
 
-  // Test if adapter can be loaded
-  try {
-    const mod = require("@prisma/adapter-libsql");
-    result.adapterExports = Object.keys(mod);
-    result.adapterLoaded = true;
-  } catch (e: any) {
-    result.adapterLoaded = false;
-    result.adapterError = e.message;
+  if (debugSecret && providedSecret !== debugSecret) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  // Test DB connection
+  // If no DEBUG_SECRET is set, only allow in non-production
+  if (!debugSecret && process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Disabled in production" }, { status: 403 });
+  }
+
+  const result: any = { timestamp: new Date().toISOString() };
+
   try {
     const { db } = await import("@/lib/db");
     const userCount = await (db as any).user.count();
-    result.dbOk = true;
+    result.ok = true;
     result.userCount = userCount;
-    result.adminExists = !!(await (db as any).user.findFirst({ where: { username: "admin" } }));
   } catch (e: any) {
-    result.dbOk = false;
-    result.dbError = e.message;
+    result.ok = false;
+    result.error = e.message?.slice(0, 120);
   }
 
   return NextResponse.json(result);

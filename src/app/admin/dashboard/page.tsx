@@ -1,3 +1,4 @@
+import { formatDate } from "@/lib/utils";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -104,7 +105,7 @@ export default async function AdminDashboard() {
                       </span>
                     </td>
                     <td className="py-2 text-gray-500">
-                      {new Date(v.submittedAt).toLocaleDateString()}
+                      {formatDate(v.submittedAt)}
                     </td>
                   </tr>
                 ))}

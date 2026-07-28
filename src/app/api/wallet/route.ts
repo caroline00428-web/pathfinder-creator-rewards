@@ -1,25 +1,15 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getOrCreateCreator } from "@/lib/auth-utils";
 import { db } from "@/lib/db";
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session || !session.user.creatorId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
+  const creator = await getOrCreateCreator();
+  if (!creator) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
   const [wallet, transactions] = await Promise.all([
-    db.creditWallet.findUnique({ where: { creatorId: session.user.creatorId } }),
-    db.creditTransaction.findMany({
-      where: { creatorId: session.user.creatorId },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    }),
+    db.creditWallet.findUnique({ where: { creatorId: creator.id } }),
+    db.creditTransaction.findMany({ where: { creatorId: creator.id }, orderBy: { createdAt: "desc" }, take: 100 }),
   ]);
 
-  return NextResponse.json({
-    balance: wallet?.balance ?? 0,
-    transactions,
-  });
+  return NextResponse.json({ balance: wallet?.balance ?? 0, transactions });
 }

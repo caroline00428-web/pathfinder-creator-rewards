@@ -83,7 +83,7 @@ export default function AdminMilestonesPage() {
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none" placeholder="1000" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Credits Awarded</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Diamonds (1 point = $0.01)</label>
               <input type="number" required value={form.creditsAwarded} onChange={e => setForm({ ...form, creditsAwarded: e.target.value })}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none" placeholder="100" />
             </div>
@@ -104,7 +104,8 @@ export default function AdminMilestonesPage() {
                 <thead>
                   <tr className="bg-gray-50 text-left">
                     <th className="px-4 py-2 font-medium text-gray-500">Views ≥</th>
-                    <th className="px-4 py-2 font-medium text-gray-500">Credits</th>
+                    <th className="px-4 py-2 font-medium text-gray-500">Diamonds</th>
+                    <th className="px-4 py-2 font-medium text-gray-500">Points ($)</th>
                     <th className="px-4 py-2 font-medium text-gray-500">Status</th>
                     <th className="px-4 py-2 font-medium text-gray-500"></th>
                   </tr>
@@ -114,6 +115,7 @@ export default function AdminMilestonesPage() {
                     <tr key={m.id} className="border-t">
                       <td className="px-4 py-2 font-medium">{m.viewThreshold.toLocaleString()}</td>
                       <td className="px-4 py-2">{m.creditsAwarded.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-green-600 font-medium">${Math.floor(m.creditsAwarded / 100)}</td>
                       <td className="px-4 py-2">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${
                           m.active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"

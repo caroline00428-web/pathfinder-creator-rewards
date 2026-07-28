@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
@@ -124,7 +125,7 @@ export default function AdminCampaignsPage() {
                     c.platform === "TIKTOK" ? "bg-gray-900 text-white" : "bg-purple-100 text-purple-700"
                   }`}>{c.platform}</span>
                   {" · "}
-                  {new Date(c.startTime).toLocaleDateString()} → {new Date(c.endTime).toLocaleDateString()}
+                  {formatDate(c.startTime)} → {formatDate(c.endTime)}
                   {" · "}{c._count.videos} videos · {c._count.milestones} milestones
                 </p>
                 {c.description && <p className="text-xs text-gray-400 mt-1">{c.description}</p>}

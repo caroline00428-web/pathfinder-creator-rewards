@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 
@@ -95,7 +96,7 @@ export default function AdminCreatorDetailPage() {
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <p className="text-sm text-gray-500">Joined</p>
-          <p className="font-medium">{new Date(creator.user.createdAt).toLocaleDateString()}</p>
+          <p className="font-medium">{formatDate(creator.user.createdAt)}</p>
         </div>
       </div>
 
@@ -155,7 +156,7 @@ export default function AdminCreatorDetailPage() {
                         "bg-gray-100 text-gray-800"
                       }`}>{v.status}</span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500">{new Date(v.submittedAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-gray-500">{formatDate(v.submittedAt)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -193,7 +194,7 @@ export default function AdminCreatorDetailPage() {
                       {t.amount > 0 ? "+" : ""}{t.amount.toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-gray-500">{t.reason || "—"}</td>
-                    <td className="px-4 py-3 text-gray-500">{new Date(t.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-gray-500">{formatDate(t.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -231,7 +232,7 @@ export default function AdminCreatorDetailPage() {
                         "bg-green-100 text-green-800"
                       }`}>{o.status}</span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500">{new Date(o.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-gray-500">{formatDate(o.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>

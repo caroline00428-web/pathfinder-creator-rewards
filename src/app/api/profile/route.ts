@@ -5,12 +5,13 @@ import { db } from "@/lib/db";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session || !session.user.creatorId) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const creator = await db.creator.findUnique({
-    where: { id: session.user.creatorId },
+  // Look up creator by userId (works for both CREATOR role and ADMIN testing)
+  const creator = await db.creator.findFirst({
+    where: { userId: session.user.id },
     include: {
       user: { select: { username: true, email: true } },
       wallet: true,
@@ -18,7 +19,24 @@ export async function GET() {
   });
 
   if (!creator) {
-    return NextResponse.json({ error: "Creator not found" }, { status: 404 });
+    // Auto-create Creator record for admins testing creator features
+    if (session.user.role === "ADMIN") {
+      const newCreator = await db.creator.create({
+        data: {
+          userId: session.user.id,
+          displayName: session.user.username || "Admin Creator",
+          creatorCode: "ADMIN" + session.user.id.slice(-4).toUpperCase(),
+        },
+        include: {
+          user: { select: { username: true, email: true } },
+          wallet: true,
+        },
+      });
+      // Create wallet
+      await db.creditWallet.create({ data: { creatorId: newCreator.id, balance: 0 } });
+      return NextResponse.json(newCreator);
+    }
+    return NextResponse.json({ error: "Creator profile not found" }, { status: 404 });
   }
 
   return NextResponse.json(creator);
@@ -27,13 +45,26 @@ export async function GET() {
 export async function PUT(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user.creatorId) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const creator = await db.creator.findUnique({
-      where: { id: session.user.creatorId },
+    // Look up creator by userId
+    let creator = await db.creator.findFirst({
+      where: { userId: session.user.id },
     });
+
+    // Auto-create for admin testing
+    if (!creator && session.user.role === "ADMIN") {
+      creator = await db.creator.create({
+        data: {
+          userId: session.user.id,
+          displayName: session.user.username || "Admin Creator",
+          creatorCode: "ADMIN" + session.user.id.slice(-4).toUpperCase(),
+        },
+      });
+      await db.creditWallet.create({ data: { creatorId: creator.id, balance: 0 } });
+    }
 
     if (!creator) {
       return NextResponse.json({ error: "Creator not found" }, { status: 404 });
@@ -86,6 +117,6 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
   } catch (error: any) {
     console.error("Profile PUT error:", error);
-    return NextResponse.json({ error: error.message || "Update failed" }, { status: 500 });
+    return NextResponse.json({ error: "Update failed. Please try again." }, { status: 500 });
   }
 }

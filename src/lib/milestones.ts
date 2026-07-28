@@ -6,6 +6,7 @@ export interface ClaimableMilestone {
   viewThreshold: number;
   creditsAwarded: number;
   isClaimed: boolean;
+  totalViews: number;
 }
 
 export interface ClaimResult {
@@ -15,34 +16,40 @@ export interface ClaimResult {
 }
 
 export async function getClaimableMilestones(
-  videoId: string
+  creatorId: string,
+  campaignId: string,
+  platform: string
 ): Promise<ClaimableMilestone[]> {
-  const video = await db.video.findUnique({
-    where: { id: videoId },
-    include: { campaign: true },
+  // Compute total views across ALL eligible videos in this campaign + platform for this creator
+  const aggregate = await db.video.aggregate({
+    where: {
+      creatorId,
+      campaignId,
+      platform,
+      eligibilityStatus: { not: "INELIGIBLE" },
+    },
+    _sum: { viewCount: true },
   });
+  const totalViews = aggregate._sum.viewCount ?? 0;
 
-  if (!video) throw new Error("Video not found");
-
-  // Get all active milestones for the video's platform
+  // Get all active milestones for the platform
   const milestones = await db.milestone.findMany({
     where: {
-      platform: video.platform,
+      platform,
       active: true,
       OR: [
-        { campaignId: video.campaignId },
+        { campaignId },
         { campaignId: null }, // global milestones
       ],
     },
     orderBy: { viewThreshold: "asc" },
   });
 
-  // Get claimed milestones for this video
+  // Get claimed milestones for this creator (unique per creator+milestone)
   const claimed = await db.milestoneClaim.findMany({
-    where: { videoId },
+    where: { creatorId },
     select: { milestoneId: true },
   });
-
   const claimedIds = new Set(claimed.map((c) => c.milestoneId));
 
   return milestones.map((m) => ({
@@ -51,13 +58,15 @@ export async function getClaimableMilestones(
     viewThreshold: m.viewThreshold,
     creditsAwarded: m.creditsAwarded,
     isClaimed: claimedIds.has(m.id),
+    totalViews,
   }));
 }
 
 export async function claimMilestone(
   videoId: string,
   milestoneId: string,
-  creatorId: string
+  creatorId: string,
+  rewardScheme?: string | null
 ): Promise<ClaimResult> {
   // Verify video belongs to creator
   const video = await db.video.findUnique({
@@ -66,11 +75,6 @@ export async function claimMilestone(
 
   if (!video || video.creatorId !== creatorId) {
     return { success: false, error: "Video not found" };
-  }
-
-  // Check eligibility
-  if (video.eligibilityStatus === "INELIGIBLE") {
-    return { success: false, error: "Video is not eligible for rewards" };
   }
 
   // Get milestone
@@ -87,26 +91,33 @@ export async function claimMilestone(
     return { success: false, error: "Milestone platform does not match video platform" };
   }
 
-  // Check view threshold
-  if (video.viewCount < milestone.viewThreshold) {
+  // Compute total views across ALL eligible videos in this campaign + platform
+  const aggregate = await db.video.aggregate({
+    where: {
+      creatorId,
+      campaignId: video.campaignId,
+      platform: video.platform,
+      eligibilityStatus: { not: "INELIGIBLE" },
+    },
+    _sum: { viewCount: true },
+  });
+  const totalViews = aggregate._sum.viewCount ?? 0;
+
+  // Check view threshold against TOTAL views
+  if (totalViews < milestone.viewThreshold) {
     return {
       success: false,
-      error: `Video has ${video.viewCount} views, needs ${milestone.viewThreshold}`,
+      error: `Total campaign views (${totalViews.toLocaleString()}) haven't reached ${milestone.viewThreshold.toLocaleString()} yet`,
     };
   }
 
-  // Check for duplicate claim (also enforced by unique constraint)
-  const existing = await db.milestoneClaim.findUnique({
-    where: {
-      videoId_milestoneId: {
-        videoId,
-        milestoneId,
-      },
-    },
+  // Check for duplicate claim (now unique per creator+milestone)
+  const existing = await db.milestoneClaim.findFirst({
+    where: { creatorId, milestoneId },
   });
 
   if (existing) {
-    return { success: false, error: "Milestone already claimed for this video" };
+    return { success: false, error: "Milestone already claimed for this campaign" };
   }
 
   // Perform claim in a transaction
@@ -123,23 +134,44 @@ export async function claimMilestone(
         },
       });
 
-      // Credit wallet
-      await tx.creditWallet.upsert({
-        where: { creatorId },
-        create: { creatorId, balance: milestone.creditsAwarded },
-        update: { balance: { increment: milestone.creditsAwarded } },
-      });
-
-      // Create transaction record
-      await tx.creditTransaction.create({
-        data: {
-          creatorId,
-          amount: milestone.creditsAwarded,
-          type: "MILESTONE_REWARD",
-          reason: `Milestone reward: ${milestone.viewThreshold.toLocaleString()} views on ${video.platform}`,
-          relatedVideoId: videoId,
-        },
-      });
+      // POINTS: credit wallet (1 point = $1 USD, diamonds/100)
+      // DIAMOND: record as order for admin manual export
+      if (rewardScheme === "POINTS") {
+        const pointsAmount = Math.floor(milestone.creditsAwarded / 100); // e.g. 300 diamonds → $3
+        await tx.creditWallet.upsert({
+          where: { creatorId },
+          create: { creatorId, balance: pointsAmount },
+          update: { balance: { increment: pointsAmount } },
+        });
+        await tx.creditTransaction.create({
+          data: {
+            creatorId,
+            amount: pointsAmount,
+            type: "MILESTONE_REWARD",
+            reason: `Milestone: ${milestone.viewThreshold.toLocaleString()} views → $${pointsAmount} points`,
+            relatedVideoId: videoId,
+          },
+        });
+      } else {
+        // DIAMOND: create pending order for admin to export and send manually
+        const creatorData = await tx.creator.findUnique({ where: { id: creatorId } });
+        await tx.rewardOrder.create({
+          data: {
+            creatorId,
+            playerId: creatorData?.playerId || "PENDING",
+            totalCreditCost: milestone.creditsAwarded,
+            status: "PENDING",
+            items: {
+              create: {
+                gameItemId: `DIAMOND_${milestone.viewThreshold}`,
+                itemName: `💎 Diamond Reward (${milestone.viewThreshold.toLocaleString()} views)`,
+                quantity: milestone.creditsAwarded,
+                creditCost: 0,
+              },
+            },
+          },
+        });
+      }
 
       return claim;
     });
@@ -150,10 +182,10 @@ export async function claimMilestone(
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Claim failed";
-    // Check for unique constraint violation
     if (message.includes("Unique constraint")) {
-      return { success: false, error: "Milestone already claimed for this video" };
+      return { success: false, error: "Milestone already claimed for this campaign" };
     }
-    return { success: false, error: message };
+    console.error("Claim error:", message);
+    return { success: false, error: "Claim failed. Please try again." };
   }
 }

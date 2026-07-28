@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate } from "@/lib/utils";
 import { useState, useEffect } from "react";
 
 interface Video {
@@ -84,7 +85,7 @@ export default function AdminVideoReviewPage() {
                   <td className="px-4 py-3 max-w-[200px] truncate">
                     <a href={v.url} target="_blank" className="text-indigo-600 hover:underline">{v.title || v.url}</a>
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{new Date(v.uploadTime).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-gray-500">{formatDate(v.uploadTime)}</td>
                   <td className="px-4 py-3 font-medium">{v.viewCount.toLocaleString()}</td>
                   <td className="px-4 py-3">
                     <span className={`text-xs px-2 py-0.5 rounded-full ${

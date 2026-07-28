@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { detectCategory } from "@/lib/utils";
 
 export async function GET() {
   const items = await db.shopItem.findMany({
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
       itemName,
       creditCost,
       quantity: quantity ?? -1,
+      category: detectCategory(gameItemId),
       description: description || null,
     },
   });

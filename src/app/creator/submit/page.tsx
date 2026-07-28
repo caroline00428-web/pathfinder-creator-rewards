@@ -1,5 +1,7 @@
 "use client";
 
+import { formatDate } from "@/lib/utils";
+import { useT } from "@/lib/i18n/LanguageContext";
 import { useState, useEffect } from "react";
 
 interface Campaign {
@@ -19,6 +21,7 @@ interface VideoInfo {
 }
 
 export default function SubmitVideoPage() {
+  const { t } = useT();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [platform, setPlatform] = useState("YOUTUBE");
   const [campaignId, setCampaignId] = useState("");
@@ -64,16 +67,16 @@ export default function SubmitVideoPage() {
         // Convert ISO 8601 to datetime-local format
         if (data.publishedAt) {
           const d = new Date(data.publishedAt);
-          setUploadTime(d.toISOString().slice(0, 16));
+          setUploadTime(d.toISOString().slice(0, 10));
         }
         setVideoInfo(data);
-        setFetchMsg(`✅ Auto-detected: ${data.title || "Unknown title"} by ${data.channelTitle || "Unknown channel"}`);
+        setFetchMsg(`✅ ${t("submit.autoDetectedMsg")}: ${data.title || t("submit.unknownTitle")} ${t("general.by")} ${data.channelTitle || t("submit.unknownChannel")}`);
       } else {
         setVideoInfo(data);
-        setFetchMsg(`⚠️ ${data.message || "Could not auto-detect. Please enter details manually."}`);
+        setFetchMsg(`⚠️ ${data.message || t("submit.fetchFailed")}`);
       }
     } catch {
-      setFetchMsg("❌ Failed to fetch video info. Please enter manually.");
+      setFetchMsg(`❌ ${t("submit.fetchFailed")}`);
     }
     setFetching(false);
   }
@@ -100,20 +103,24 @@ export default function SubmitVideoPage() {
     setSubmitting(false);
 
     if (res.ok) {
-      setSuccess(`Video submitted! Status: ${data.eligibilityStatus === "ELIGIBLE" ? "✅ Eligible for rewards" : "⚠️ Not eligible (outside campaign period)"}`);
+      setSuccess(`${t("submit.videoSubmitted")} ${t("submit.status")}: ${data.eligibilityStatus === "ELIGIBLE" ? "✅ " + t("submit.eligible") : "⚠️ " + t("submit.notEligible")}`);
       setUrl("");
       setTitle("");
       setUploadTime("");
       setVideoInfo(null);
       setFetchMsg("");
     } else {
-      setError(data.error || "Failed to submit video");
+      setError(data.error || t("submit.failed"));
     }
   }
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Submit Video</h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-2">{t("submit.title")}</h2>
+      <div className="mb-4 bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-2.5 text-sm text-indigo-700">
+        ⚠️ {t("submit.hashtagHint")} <code className="bg-indigo-100 px-1.5 py-0.5 rounded text-indigo-800 font-bold">#galaxydefense #galaxydefensepathfinder</code> {t("submit.hashtagHint2")}
+        <br /><a href="/guide" target="_blank" className="text-indigo-500 underline text-xs mt-1 inline-block">📖 New to creating videos? Read our free starter guide →</a>
+      </div>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
         {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
@@ -121,7 +128,7 @@ export default function SubmitVideoPage() {
 
         {/* Platform */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Platform</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t("submit.platform")}</label>
           <div className="flex gap-2">
             {["YOUTUBE", "TIKTOK"].map((p) => (
               <button
@@ -140,10 +147,10 @@ export default function SubmitVideoPage() {
 
         {/* Campaign */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Campaign</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t("submit.campaign")}</label>
           <select value={campaignId} onChange={(e) => setCampaignId(e.target.value)} required
             className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-            <option value="">Select a campaign...</option>
+            <option value="">{t("submit.selectCampaign")}</option>
             {campaigns.map((c) => (
               <option key={c.id} value={c.id}>{c.name} ({c.platform})</option>
             ))}
@@ -152,7 +159,7 @@ export default function SubmitVideoPage() {
 
         {/* URL with Fetch button */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Video URL</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t("submit.videoUrl")}</label>
           <div className="flex gap-2">
             <input
               type="url" required value={url} onChange={(e) => setUrl(e.target.value)}
@@ -163,7 +170,7 @@ export default function SubmitVideoPage() {
               type="button" onClick={handleFetchInfo} disabled={fetching || !url}
               className="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-500 disabled:opacity-50 transition-colors whitespace-nowrap"
             >
-              {fetching ? "⏳ Detecting..." : "🔍 Auto-Detect"}
+              {fetching ? `⏳ ${t("submit.detecting")}` : `🔍 ${t("submit.autoDetect")}`}
             </button>
           </div>
           {fetchMsg && (
@@ -182,7 +189,7 @@ export default function SubmitVideoPage() {
             <div className="text-sm">
               <p className="font-medium text-gray-900">{videoInfo.title}</p>
               <p className="text-gray-500">{videoInfo.channelTitle}</p>
-              <p className="text-gray-400 text-xs">Published: {videoInfo.publishedAt ? new Date(videoInfo.publishedAt).toLocaleString() : "—"}</p>
+              <p className="text-gray-400 text-xs">Published: {videoInfo.publishedAt ? formatDate(videoInfo.publishedAt) : "—"}</p>
             </div>
           </div>
         )}
@@ -190,20 +197,22 @@ export default function SubmitVideoPage() {
         {/* Title — auto-filled, editable */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Video Title {videoInfo?.title && <span className="text-green-600 text-xs">(auto-detected)</span>}
+            Video Title {videoInfo?.title && <span className="text-green-600 text-xs">({t("submit.autoDetected")})</span>}
           </label>
           <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
             className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-            placeholder="Auto-detected or enter manually" />
+            placeholder={t("submit.placeholder")} />
         </div>
 
         {/* Upload Time — auto-filled, editable */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Video Publish Time {videoInfo?.publishedAt && <span className="text-green-600 text-xs">(auto-detected)</span>}
+            {t("submit.publishTime")} {videoInfo?.publishedAt && <span className="text-green-600 text-xs">({t("submit.autoDetected")})</span>}
           </label>
           <input
-            type="datetime-local" required value={uploadTime} onChange={(e) => setUploadTime(e.target.value)}
+            type="date" required value={uploadTime} onChange={(e) => setUploadTime(e.target.value)}
+            onKeyDown={(e) => e.preventDefault()}
+            onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
             className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           />
           <p className="text-xs text-gray-500 mt-1">
@@ -217,7 +226,7 @@ export default function SubmitVideoPage() {
 
         <button type="submit" disabled={submitting || !uploadTime}
           className="w-full py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-50 transition-colors">
-          {submitting ? "Submitting..." : "Submit Video"}
+          {submitting ? t("submit.submitting") : t("submit.submitBtn")}
         </button>
       </form>
     </div>

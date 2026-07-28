@@ -5,9 +5,21 @@ import { db } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || !session.user.creatorId) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
+
+  let creator = await db.creator.findFirst({ where: { userId: session.user.id } });
+  if (!creator && session.user.role === "ADMIN") {
+    creator = await db.creator.create({
+      data: { userId: session.user.id, displayName: session.user.username || "Admin", creatorCode: "ADMIN" + session.user.id.slice(-4).toUpperCase() },
+    });
+    await db.creditWallet.create({ data: { creatorId: creator.id, balance: 0 } });
+  }
+  if (!creator) {
+    return NextResponse.json({ error: "Creator profile not found" }, { status: 403 });
+  }
+  const creatorId = creator.id;
 
   const { items } = await req.json(); // items: [{ shopItemId, quantity }]
 
@@ -16,8 +28,8 @@ export async function POST(req: NextRequest) {
   }
 
   // Validate creator has playerId set
-  const creator = await db.creator.findUnique({ where: { id: session.user.creatorId } });
-  if (!creator || !creator.playerId) {
+  const creatorData = await db.creator.findUnique({ where: { id: creatorId } });
+  if (!creatorData || !creatorData.playerId) {
     return NextResponse.json({ error: "You must bind your Player ID before redeeming rewards" }, { status: 400 });
   }
 
@@ -41,44 +53,39 @@ export async function POST(req: NextRequest) {
   }
 
   // Check wallet balance
-  const wallet = await db.creditWallet.findUnique({ where: { creatorId: session.user.creatorId } });
+  const wallet = await db.creditWallet.findUnique({ where: { creatorId: creatorId } });
   if (!wallet || wallet.balance < totalCost) {
     return NextResponse.json({ error: `Insufficient credits. You have ${wallet?.balance ?? 0}, need ${totalCost}` }, { status: 400 });
   }
 
-  // Process redemption
+  // Process redemption with atomic balance check
   const result = await db.$transaction(async (tx) => {
+    // Re-check wallet inside transaction to prevent negative balance race
+    const currentWallet = await tx.creditWallet.findUnique({ where: { creatorId } });
+    if (!currentWallet || currentWallet.balance < totalCost) {
+      throw new Error(`INSUFFICIENT:${currentWallet?.balance ?? 0}`);
+    }
     // Deduct credits
     await tx.creditWallet.update({
-      where: { creatorId: session.user.creatorId! },
+      where: { creatorId: creatorId },
       data: { balance: { decrement: totalCost } },
     });
 
     // Create transaction record
     await tx.creditTransaction.create({
       data: {
-        creatorId: session.user.creatorId!,
+        creatorId: creatorId,
         amount: -totalCost,
         type: "SHOP_REDEMPTION",
         reason: `Redeemed ${orderItems.length} item(s)`,
       },
     });
 
-    // Deduct stock
-    for (const { shopItem, quantity } of orderItems) {
-      if (shopItem.quantity !== -1) {
-        await tx.shopItem.update({
-          where: { id: shopItem.id },
-          data: { quantity: { decrement: quantity } },
-        });
-      }
-    }
-
     // Create order
     const order = await tx.rewardOrder.create({
       data: {
-        creatorId: session.user.creatorId!,
-        playerId: creator.playerId!,
+        creatorId: creatorId,
+        playerId: creatorData.playerId!,
         totalCreditCost: totalCost,
         status: "PENDING",
         items: {
@@ -95,7 +102,7 @@ export async function POST(req: NextRequest) {
 
     // Update transaction with order ID
     await tx.creditTransaction.updateMany({
-      where: { creatorId: session.user.creatorId!, relatedOrderId: null, type: "SHOP_REDEMPTION" },
+      where: { creatorId: creatorId, relatedOrderId: null, type: "SHOP_REDEMPTION" },
       data: { relatedOrderId: order.id },
     });
 
