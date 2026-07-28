@@ -28,6 +28,9 @@ export default function AdminSpecialRewardsPage() {
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [adminNotes, setAdminNotes] = useState("");
   const [toast, setToast] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<string>("");
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   // Generate week options (current week + last 4 weeks)
   const weekOptions = [];
@@ -54,6 +57,7 @@ export default function AdminSpecialRewardsPage() {
       .then(data => {
         console.log("[Admin] Loaded applications:", data);
         setApplications(Array.isArray(data) ? data : []);
+        setSelected(new Set()); // Clear selection on refresh
       })
       .catch(e => {
         console.error("[Admin] Failed to load applications:", e);
@@ -76,6 +80,62 @@ export default function AdminSpecialRewardsPage() {
       fetchApps();
     } else {
       setToast(`❌ ${data.error}`);
+    }
+  }
+
+  function toggleSelect(id: string) {
+    const newSelected = new Set(selected);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelected(newSelected);
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === applications.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(applications.map(a => a.id)));
+    }
+  }
+
+  async function handleBulkUpdate(newStatus: string) {
+    if (selected.size === 0) {
+      setToast("❌ No applications selected");
+      return;
+    }
+
+    if (!confirm(`Update ${selected.size} applications to ${newStatus}?`)) {
+      return;
+    }
+
+    setBulkLoading(true);
+    try {
+      const res = await fetch("/api/admin/special-rewards/applications/bulk-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          applicationIds: Array.from(selected),
+          newStatus,
+          adminNotes,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setToast(`✅ ${data.message}`);
+        setSelected(new Set());
+        setAdminNotes("");
+        fetchApps();
+      } else {
+        setToast(`❌ ${data.error}`);
+      }
+    } catch (e) {
+      setToast("❌ Error updating applications");
+      console.error(e);
+    } finally {
+      setBulkLoading(false);
     }
   }
 
@@ -140,6 +200,45 @@ export default function AdminSpecialRewardsPage() {
         </div>
       )}
 
+      {/* Batch Operations Bar */}
+      {selected.size > 0 && (
+        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-blue-900">{selected.size} selected</span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleBulkUpdate("APPROVED")}
+                disabled={bulkLoading}
+                className="px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-500 disabled:opacity-50"
+              >
+                ✅ Approve All
+              </button>
+              <button
+                onClick={() => handleBulkUpdate("REJECTED")}
+                disabled={bulkLoading}
+                className="px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-500 disabled:opacity-50"
+              >
+                ❌ Reject All
+              </button>
+              <button
+                onClick={() => handleBulkUpdate("SENT")}
+                disabled={bulkLoading}
+                className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-500 disabled:opacity-50"
+              >
+                📤 Mark All Sent
+              </button>
+              <button
+                onClick={() => setSelected(new Set())}
+                disabled={bulkLoading}
+                className="px-3 py-2 bg-gray-400 text-white rounded text-sm hover:bg-gray-500 disabled:opacity-50"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex gap-2 mb-4 flex-wrap">
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
@@ -148,6 +247,7 @@ export default function AdminSpecialRewardsPage() {
           <option value="PENDING">Pending</option>
           <option value="APPROVED">Approved</option>
           <option value="REJECTED">Rejected</option>
+          <option value="SENT">Sent</option>
         </select>
         <select value={filterType} onChange={e => setFilterType(e.target.value)}
           className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
@@ -170,6 +270,14 @@ export default function AdminSpecialRewardsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 text-left">
+                <th className="px-4 py-3 font-medium text-gray-500">
+                  <input
+                    type="checkbox"
+                    checked={selected.size === applications.length && applications.length > 0}
+                    onChange={toggleSelectAll}
+                    className="rounded"
+                  />
+                </th>
                 <th className="px-4 py-3 font-medium text-gray-500">Creator</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Reward</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Diamonds</th>
@@ -183,6 +291,14 @@ export default function AdminSpecialRewardsPage() {
             <tbody>
               {applications.map(app => (
                 <tr key={app.id} className="border-t hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(app.id)}
+                      onChange={() => toggleSelect(app.id)}
+                      className="rounded"
+                    />
+                  </td>
                   <td className="px-4 py-3">
                     <span className="font-medium">{app.creator.displayName}</span>
                     <span className="text-xs text-gray-400 block">{app.creator.creatorCode}</span>
@@ -205,6 +321,7 @@ export default function AdminSpecialRewardsPage() {
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                       app.status === "PENDING" ? "bg-yellow-100 text-yellow-800" :
                       app.status === "APPROVED" ? "bg-green-100 text-green-800" :
+                      app.status === "SENT" ? "bg-blue-100 text-blue-800" :
                       "bg-red-100 text-red-800"
                     }`}>{app.status}</span>
                   </td>
