@@ -4,27 +4,65 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import Link from "next/link";
 
-export default async function AdminDashboard() {
+export default async function AdminDashboard({
+  searchParams,
+}: {
+  searchParams: { campaign?: string };
+}) {
   const session = await getServerSession(authOptions);
 
-  const [totalCreators, pendingTikTok, pendingOrders, totalVideos, activeCampaigns, recentVideos] =
-    await Promise.all([
-      db.creator.count(),
-      db.video.count({ where: { platform: "TIKTOK", status: "PENDING" } }),
-      db.rewardOrder.count({ where: { status: "PENDING" } }),
-      db.video.count(),
-      db.campaign.count({ where: { active: true } }),
-      db.video.findMany({
-        include: { creator: true, campaign: true },
-        orderBy: { submittedAt: "desc" },
-        take: 10,
-      }),
-    ]);
+  const campaignFilter = searchParams.campaign;
+
+  // Get all active campaigns for filter
+  const campaigns = await db.campaign.findMany({
+    where: { active: true },
+    orderBy: { name: "asc" },
+  });
+
+  // Base query for campaign filter
+  const whereFilter = campaignFilter ? { campaignId: campaignFilter } : {};
+
+  const [
+    totalCreators,
+    pendingTikTok,
+    pendingOrders,
+    totalVideos,
+    activeCampaigns,
+    recentVideos,
+    youtubeStats,
+    tiktokStats,
+  ] = await Promise.all([
+    db.creator.count(),
+    db.video.count({ where: { platform: "TIKTOK", status: "PENDING" } }),
+    db.rewardOrder.count({ where: { status: "PENDING" } }),
+    db.video.count(),
+    db.campaign.count({ where: { active: true } }),
+    db.video.findMany({
+      where: whereFilter,
+      include: { creator: true, campaign: true },
+      orderBy: { submittedAt: "desc" },
+      take: 10,
+    }),
+    // YouTube total views
+    db.video.aggregate({
+      where: { platform: "YOUTUBE", ...whereFilter },
+      _sum: { viewCount: true },
+    }),
+    // TikTok total views
+    db.video.aggregate({
+      where: { platform: "TIKTOK", ...whereFilter },
+      _sum: { viewCount: true },
+    }),
+  ]);
 
   const totalCreditsResult = await db.creditTransaction.aggregate({
     where: { type: "MILESTONE_REWARD" },
     _sum: { amount: true },
   });
+
+  const youtubeViews = youtubeStats._sum.viewCount ?? 0;
+  const tiktokViews = tiktokStats._sum.viewCount ?? 0;
+  const totalViews = youtubeViews + tiktokViews;
 
   const stats = [
     { label: "Total Creators", value: totalCreators, href: "/admin/creators" },
@@ -33,6 +71,9 @@ export default async function AdminDashboard() {
     { label: "Total Videos", value: totalVideos },
     { label: "Active Campaigns", value: activeCampaigns, href: "/admin/campaigns" },
     { label: "Credits Issued", value: totalCreditsResult._sum.amount ?? 0 },
+    { label: "🎬 YouTube Views", value: youtubeViews.toLocaleString() },
+    { label: "🎵 TikTok Views", value: tiktokViews.toLocaleString() },
+    { label: "📊 Total Views", value: totalViews.toLocaleString() },
   ];
 
   return (
@@ -52,13 +93,44 @@ export default async function AdminDashboard() {
         </div>
       </div>
 
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
+        {/* Campaign Filter */}
+        <div className="flex gap-2 flex-wrap">
+          <Link
+            href="/admin/dashboard"
+            className={`px-3 py-2 rounded-lg text-sm ${!campaignFilter ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700"}`}
+          >
+            All Campaigns
+          </Link>
+          {campaigns.map((c) => (
+            <Link
+              key={c.id}
+              href={`/admin/dashboard?campaign=${c.id}`}
+              className={`px-3 py-2 rounded-lg text-sm ${campaignFilter === c.id ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700"}`}
+            >
+              {c.name}
+            </Link>
+          ))}
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-            <p className="text-sm text-gray-500">{stat.label}</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">
+          <div
+            key={stat.label}
+            className={`rounded-xl shadow-sm p-5 border ${
+              stat.label.includes("YouTube")
+                ? "bg-red-50 border-red-200"
+                : stat.label.includes("TikTok")
+                  ? "bg-gray-900 border-gray-800 text-white"
+                  : "bg-white border-gray-100"
+            }`}
+          >
+            <p className={`text-sm ${stat.label.includes("TikTok") ? "text-gray-300" : "text-gray-500"}`}>
+              {stat.label}
+            </p>
+            <p className={`text-3xl font-bold mt-1 ${stat.label.includes("TikTok") ? "text-white" : "text-gray-900"}`}>
               {typeof stat.value === "number" ? stat.value.toLocaleString() : stat.value}
             </p>
           </div>
@@ -87,26 +159,30 @@ export default async function AdminDashboard() {
                   <tr key={v.id} className="border-b last:border-0">
                     <td className="py-2">{v.creator.displayName}</td>
                     <td className="py-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        v.platform === "YOUTUBE" ? "bg-red-100 text-red-700" : "bg-gray-900 text-white"
-                      }`}>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full ${
+                          v.platform === "YOUTUBE" ? "bg-red-100 text-red-700" : "bg-gray-900 text-white"
+                        }`}
+                      >
                         {v.platform}
                       </span>
                     </td>
                     <td className="py-2 text-gray-500">{v.campaign.name}</td>
                     <td className="py-2">{v.viewCount.toLocaleString()}</td>
                     <td className="py-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        v.status === "PENDING" ? "bg-yellow-100 text-yellow-800" :
-                        v.status === "APPROVED" ? "bg-green-100 text-green-800" :
-                        "bg-gray-100 text-gray-800"
-                      }`}>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full ${
+                          v.status === "PENDING"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : v.status === "APPROVED"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
                         {v.status}
                       </span>
                     </td>
-                    <td className="py-2 text-gray-500">
-                      {formatDate(v.submittedAt)}
-                    </td>
+                    <td className="py-2 text-gray-500">{formatDate(v.submittedAt)}</td>
                   </tr>
                 ))}
               </tbody>
