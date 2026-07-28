@@ -19,24 +19,34 @@ export async function PUT(
     return NextResponse.json({ error: "Invalid status. Use APPROVED, REJECTED, or SENT" }, { status: 400 });
   }
 
-  const application = await db.specialRewardApplication.findUnique({
-    where: { id },
-    include: { reward: true },
-  });
-  if (!application) {
-    return NextResponse.json({ error: "Application not found" }, { status: 404 });
-  }
-
-  if (application.status !== "PENDING" && application.status !== "APPROVED") {
-    return NextResponse.json({ error: "Application already finalized" }, { status: 400 });
-  }
-
   try {
+    // Use raw SQL to get initial application (avoids Prisma type conversion issues)
+    const appRows = await db.$queryRawUnsafe(
+      `SELECT * FROM SpecialRewardApplication WHERE id = ?`,
+      id
+    ) as any[];
+
+    if (appRows.length === 0) {
+      return NextResponse.json({ error: "Application not found" }, { status: 404 });
+    }
+
+    const appInitial = appRows[0];
+
+    if (appInitial.status !== "PENDING" && appInitial.status !== "APPROVED") {
+      return NextResponse.json({ error: "Application already finalized" }, { status: 400 });
+    }
+
     const result = await db.$transaction(async (tx) => {
-      // Re-read inside transaction
+      // Re-read inside transaction using Prisma with select to avoid followerCount
       const current = await tx.specialRewardApplication.findUnique({
         where: { id },
-        include: { reward: true, creator: true },
+        select: {
+          id: true,
+          status: true,
+          creatorId: true,
+          reward: { select: { diamonds: true, name: true, rewardType: true } },
+          creator: { select: { id: true } },
+        },
       });
       if (!current) throw new Error("NOT_FOUND");
 
@@ -74,7 +84,10 @@ export async function PUT(
     if (status === "SENT") {
       const app = await db.specialRewardApplication.findUnique({
         where: { id },
-        include: { creator: { include: { user: true } }, reward: true },
+        include: {
+          creator: { include: { user: { select: { email: true } } } },
+          reward: { select: { diamonds: true, name: true } },
+        },
       });
       if (app?.creator.user.email) {
         try {
