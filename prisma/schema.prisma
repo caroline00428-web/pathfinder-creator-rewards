@@ -40,8 +40,7 @@ model Creator {
   playerIdLocked Boolean            @default(false)
   discordId      String?
   youtubeChannelId String?
-  status         String             @default("ACTIVE") // ACTIVE | INACTIVE
-  rewardScheme   String?            // null = unselected, DIAMOND, POINTS — locked after first claim
+  status         String             @default("ACTIVE")
   wallet         CreditWallet?
   videos         Video[]
   claims         MilestoneClaim[]
