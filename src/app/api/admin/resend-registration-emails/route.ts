@@ -48,8 +48,51 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
+  // Check if this is a preview request
+  const { searchParams } = new URL(req.url);
+  const preview = searchParams.get("preview") === "true";
+  const startDate = searchParams.get("startDate");
+
   try {
-    // Get all creators with their user info
+    // If preview mode with startDate, show who would get emails
+    if (preview && startDate) {
+      const creators = await db.creator.findMany({
+        where: {
+          createdAt: { gte: new Date(startDate) },
+        },
+        include: { user: true },
+        orderBy: { createdAt: "desc" },
+      });
+
+      const wouldReceive = creators.filter((c) => c.user.email);
+      const wouldSkip = creators.filter((c) => !c.user.email);
+
+      return NextResponse.json({
+        mode: "preview",
+        startDate,
+        summary: {
+          total: creators.length,
+          wouldReceive: wouldReceive.length,
+          wouldSkip: wouldSkip.length,
+        },
+        wouldReceive: wouldReceive.map((c) => ({
+          id: c.id,
+          displayName: c.displayName,
+          creatorCode: c.creatorCode,
+          username: c.user.username,
+          email: c.user.email,
+          createdAt: c.createdAt,
+        })),
+        wouldSkip: wouldSkip.map((c) => ({
+          id: c.id,
+          displayName: c.displayName,
+          creatorCode: c.creatorCode,
+          reason: "no_email",
+        })),
+      });
+    }
+
+    // Original behavior: get all creators
     const creators = await db.creator.findMany({
       include: { user: true },
       orderBy: { createdAt: "desc" },
