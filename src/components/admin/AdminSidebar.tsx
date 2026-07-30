@@ -21,6 +21,7 @@ const navItems = [
   { href: "/admin/special-rewards", label: "nav.specialrewards", icon: "🎁" },
   { href: "/admin/announcements", label: "📢 Announcements", icon: "📢" },
   { href: "/admin/orders", label: "nav.rewardorders", icon: "📦" },
+  { href: "/admin/csv-bulk-send", label: "📧 CSV Bulk Send", icon: "📧" },
 ];
 
 export default function AdminSidebar() {
