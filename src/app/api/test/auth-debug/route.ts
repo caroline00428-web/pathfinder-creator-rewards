@@ -20,19 +20,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing credentials" });
     }
 
-    // Try to find user
+    // Try to find user - use raw SQL to debug
     try {
-      const user = await db.user.findUnique({
-        where: { username },
-      });
+      const users = await db.$queryRawUnsafe<any[]>(
+        `SELECT id, username, email, passwordHash, role FROM "User" WHERE username = ?`,
+        username
+      );
 
-      if (!user) {
+      if (users.length === 0) {
+        // Try to count all users
+        const allUsers = await db.$queryRawUnsafe<any[]>(
+          `SELECT COUNT(*) as count FROM "User"`
+        );
+
         return NextResponse.json({
           error: "User not found",
           step: "user_lookup",
           username,
+          totalUsersInDb: allUsers[0]?.count || 0,
         });
       }
+
+      const user = users[0];
 
       // Try password comparison
       let isValid = false;
@@ -55,11 +64,11 @@ export async function POST(req: NextRequest) {
       // Get creator
       let creatorId = undefined;
       try {
-        const creator = await db.$queryRawUnsafe<any[]>(
+        const creators = await db.$queryRawUnsafe<any[]>(
           `SELECT id FROM "Creator" WHERE userId = ? LIMIT 1`,
           user.id
         );
-        creatorId = creator?.[0]?.id;
+        creatorId = creators?.[0]?.id;
       } catch (crErr: any) {
         console.error("Creator lookup error:", crErr.message);
       }
