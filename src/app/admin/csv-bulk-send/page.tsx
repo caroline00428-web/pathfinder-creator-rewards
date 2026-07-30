@@ -60,11 +60,18 @@ export default function CSVBulkSendPage() {
       });
 
       const data = await res.json();
+
+      if (!res.ok) {
+        setResult({ error: data.error || "API 错误" });
+        console.error("API Error:", data);
+        return;
+      }
+
       setResult(data);
       console.log("Result:", data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error:", error);
-      alert("处理 CSV 失败");
+      setResult({ error: error.message || "处理 CSV 失败" });
     } finally {
       setLoading(false);
     }
@@ -111,8 +118,17 @@ export default function CSVBulkSendPage() {
 
       {result && (
         <div className="space-y-6">
-          {/* Summary */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          {result.error && (
+            <div className="bg-red-50 rounded-xl shadow-sm border border-red-200 p-6">
+              <h3 className="text-lg font-semibold text-red-900 mb-2">❌ 错误</h3>
+              <p className="text-red-700">{result.error}</p>
+            </div>
+          )}
+
+          {result.summary && (
+            <>
+              {/* Summary */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-semibold mb-4">📊 统计</h3>
             <div className="grid grid-cols-5 gap-4 mb-4">
               <div className="bg-gray-50 rounded p-4 text-center">
@@ -182,6 +198,8 @@ export default function CSVBulkSendPage() {
               ))}
             </div>
           </div>
+            </>
+          )}
         </div>
       )}
     </div>
