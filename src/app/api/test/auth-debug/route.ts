@@ -2,6 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 
+export async function GET(req: NextRequest) {
+  // List users endpoint
+  try {
+    const users = await db.$queryRawUnsafe<any[]>(
+      `SELECT username, email FROM "User" WHERE username LIKE ? ORDER BY username LIMIT 10`,
+      "%natthoff%"
+    );
+
+    return NextResponse.json({
+      searchTerm: "natthoff",
+      found: users.length,
+      users: users,
+    });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     let credentials;
@@ -33,11 +51,18 @@ export async function POST(req: NextRequest) {
           `SELECT COUNT(*) as count FROM "User"`
         );
 
+        // Also try to find similar usernames
+        const similar = await db.$queryRawUnsafe<any[]>(
+          `SELECT username, email FROM "User" WHERE username LIKE ? LIMIT 5`,
+          "%" + username.split("_")[0] + "%"
+        );
+
         return NextResponse.json({
           error: "User not found",
           step: "user_lookup",
           username,
           totalUsersInDb: allUsers[0]?.count || 0,
+          similarUsers: similar.map(u => u.username),
         });
       }
 
