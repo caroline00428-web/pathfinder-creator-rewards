@@ -11,16 +11,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         error: "JSON parse error: " + parseErr.message,
         step: "json_parse",
-        contentType: req.headers.get("content-type"),
-        bodyError: true,
       });
     }
 
     const { username, password } = credentials;
-
-    console.log("=== Authorize Debug ===");
-    console.log("Username:", username);
-    console.log("Password length:", password?.length);
 
     if (!username || !password) {
       return NextResponse.json({ error: "Missing credentials" });
@@ -40,8 +34,6 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      console.log("User found:", user.username);
-
       // Try password comparison
       let isValid = false;
       try {
@@ -59,8 +51,6 @@ export async function POST(req: NextRequest) {
           step: "password_check",
         });
       }
-
-      console.log("Password valid");
 
       // Get creator
       let creatorId = undefined;
