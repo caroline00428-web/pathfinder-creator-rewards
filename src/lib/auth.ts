@@ -47,7 +47,6 @@ export const authOptions: NextAuthOptions = {
 
         const user = await db.user.findUnique({
           where: { username: credentials.username },
-          include: { creator: true },
         });
 
         if (!user) return null;
@@ -59,12 +58,18 @@ export const authOptions: NextAuthOptions = {
 
         if (!isValid) return null;
 
+        // Get creator separately to avoid rewardScheme issue
+        const creator = await db.$queryRawUnsafe<any[]>(
+          `SELECT id FROM "Creator" WHERE userId = ? LIMIT 1`,
+          user.id
+        );
+
         return {
           id: user.id,
           email: user.email,
           username: user.username,
           role: user.role,
-          creatorId: user.creator?.id ?? undefined,
+          creatorId: creator?.[0]?.id ?? undefined,
         };
       },
     }),
