@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import bcrypt from "bcryptjs";
 
 async function sendRegistrationEmail(
   email: string,
@@ -116,6 +117,28 @@ export async function POST(req: NextRequest) {
         });
       } else {
         try {
+          // Hash the password
+          const passwordHash = await bcrypt.hash(account.password, 10);
+
+          // Create User record
+          const user = await db.user.create({
+            data: {
+              email,
+              username,
+              passwordHash,
+              role: "CREATOR",
+            },
+          });
+
+          // Create Creator record
+          await db.creator.create({
+            data: {
+              userId: user.id,
+              displayName: discordName,
+              creatorCode,
+            },
+          });
+
           // Send email
           await sendRegistrationEmail(email, username, account.password, creatorCode, discordName);
 
@@ -128,7 +151,7 @@ export async function POST(req: NextRequest) {
             account.id
           );
 
-          console.log(`[CSV] ✅ Sent to ${email}`);
+          console.log(`[CSV] ✅ Created user and sent to ${email}`);
           results.push({
             email,
             discordName,
