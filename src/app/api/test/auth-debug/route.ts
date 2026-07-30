@@ -3,17 +3,15 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
-  // List users endpoint
+  // List first 10 users
   try {
     const users = await db.$queryRawUnsafe<any[]>(
-      `SELECT username, email FROM "User" WHERE username LIKE ? ORDER BY username LIMIT 10`,
-      "%natthoff%"
+      `SELECT username, email FROM "User" ORDER BY username LIMIT 10`
     );
 
     return NextResponse.json({
-      searchTerm: "natthoff",
-      found: users.length,
-      users: users,
+      firstUsers: users.map(u => ({ username: u.username, email: u.email })),
+      totalCount: users.length,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message });
@@ -46,15 +44,45 @@ export async function POST(req: NextRequest) {
       );
 
       if (users.length === 0) {
-        // Try to count all users
-        const allUsers = await db.$queryRawUnsafe<any[]>(
-          `SELECT COUNT(*) as count FROM "User"`
+        // Try case-insensitive search
+        const caseInsensitive = await db.$queryRawUnsafe<any[]>(
+          `SELECT id, username, email, passwordHash, role FROM "User" WHERE LOWER(username) = LOWER(?)`,
+          username
         );
 
-        // Also try to find similar usernames
-        const similar = await db.$queryRawUnsafe<any[]>(
-          `SELECT username, email FROM "User" WHERE username LIKE ? LIMIT 5`,
-          "%" + username.split("_")[0] + "%"
+        if (caseInsensitive.length > 0) {
+          const user = caseInsensitive[0];
+
+          const isValid = await bcrypt.compare(password, user.passwordHash);
+
+          if (!isValid) {
+            return NextResponse.json({
+              error: "Password mismatch",
+              step: "password_check",
+            });
+          }
+
+          const creators = await db.$queryRawUnsafe<any[]>(
+            `SELECT id FROM "Creator" WHERE userId = ? LIMIT 1`,
+            user.id
+          );
+
+          return NextResponse.json({
+            success: true,
+            user: {
+              id: user.id,
+              email: user.email,
+              username: user.username,
+              role: user.role,
+              creatorId: creators?.[0]?.id,
+            },
+            note: "Found with case-insensitive search",
+          });
+        }
+
+        // Count all users
+        const allUsers = await db.$queryRawUnsafe<any[]>(
+          `SELECT COUNT(*) as count FROM "User"`
         );
 
         return NextResponse.json({
@@ -62,22 +90,13 @@ export async function POST(req: NextRequest) {
           step: "user_lookup",
           username,
           totalUsersInDb: allUsers[0]?.count || 0,
-          similarUsers: similar.map(u => u.username),
+          searched: "case-sensitive",
         });
       }
 
       const user = users[0];
 
-      // Try password comparison
-      let isValid = false;
-      try {
-        isValid = await bcrypt.compare(password, user.passwordHash);
-      } catch (bcErr: any) {
-        return NextResponse.json({
-          error: "bcrypt error: " + bcErr.message,
-          step: "bcrypt_compare",
-        });
-      }
+      const isValid = await bcrypt.compare(password, user.passwordHash);
 
       if (!isValid) {
         return NextResponse.json({
@@ -86,24 +105,17 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Get creator
-      let creatorId = undefined;
-      try {
-        const creators = await db.$queryRawUnsafe<any[]>(
-          `SELECT id FROM "Creator" WHERE userId = ? LIMIT 1`,
-          user.id
-        );
-        creatorId = creators?.[0]?.id;
-      } catch (crErr: any) {
-        console.error("Creator lookup error:", crErr.message);
-      }
+      const creators = await db.$queryRawUnsafe<any[]>(
+        `SELECT id FROM "Creator" WHERE userId = ? LIMIT 1`,
+        user.id
+      );
 
       const result = {
         id: user.id,
         email: user.email,
         username: user.username,
         role: user.role,
-        creatorId,
+        creatorId: creators?.[0]?.id,
       };
 
       return NextResponse.json({
