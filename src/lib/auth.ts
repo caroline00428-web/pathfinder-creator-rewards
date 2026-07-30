@@ -76,20 +76,30 @@ export const authOptions: NextAuthOptions = {
 
           console.log("[AUTH] Password valid");
 
-          // Get creator separately to avoid rewardScheme issue
-          const creator = await db.$queryRawUnsafe<any[]>(
-            `SELECT id FROM "Creator" WHERE userId = ? LIMIT 1`,
-            user.id
-          );
-
-          console.log("[AUTH] Creator found:", creator?.[0]?.id ? "yes" : "no");
+          // 获取关联的 Creator（使用 Prisma Relation API，避免 raw SQL 在 LibSQL 适配器下报错）
+          let creatorId: string | undefined;
+          try {
+            const userWithCreator = await db.user.findUnique({
+              where: { id: user.id },
+              select: {
+                creator: {
+                  select: { id: true },
+                },
+              },
+            });
+            creatorId = userWithCreator?.creator?.id ?? undefined;
+            console.log("[AUTH] Creator lookup:", creatorId ? `found (${creatorId})` : "none");
+          } catch (creatorErr: any) {
+            // Creator 查询失败不阻塞登录 —— 用户密码已验证通过
+            console.warn("[AUTH] Creator lookup failed (non-blocking):", creatorErr.message);
+          }
 
           const result = {
             id: user.id,
             email: user.email,
             username: user.username,
             role: user.role,
-            creatorId: creator?.[0]?.id ?? undefined,
+            creatorId,
           };
 
           console.log("[AUTH] Authorization successful, returning:", result);
