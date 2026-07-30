@@ -41,6 +41,7 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        console.log("[AUTH_INIT] CredentialsProvider.authorize called at:", new Date().toISOString());
         console.log("[AUTH] authorize() called");
         console.log("[AUTH] credentials:", credentials ? "exists" : "null");
 
