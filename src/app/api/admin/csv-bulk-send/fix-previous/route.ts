@@ -46,6 +46,23 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
+        // Also check if creator exists
+        const existingCreator = await db.creator.findFirst({
+          where: { user: { email: account.email } },
+        });
+
+        if (existingCreator) {
+          console.log(`[FIX] Creator for ${account.email} already exists, skipping`);
+          results.push({
+            email: account.email,
+            username: account.username,
+            status: "skipped",
+            reason: "Creator already exists",
+          });
+          skipped++;
+          continue;
+        }
+
         // Hash the password
         const passwordHash = await bcrypt.hash(account.password, 10);
 
@@ -60,11 +77,13 @@ export async function POST(req: NextRequest) {
         });
 
         // Create Creator record
+        const creatorCode = `GDP_${(account.discordName || account.username).toUpperCase().slice(0, 12)}_${account.password.slice(0, 4)}`;
+
         await db.creator.create({
           data: {
             userId: user.id,
             displayName: account.discordName || account.username,
-            creatorCode: `GDP_${(account.discordName || account.username).toUpperCase().slice(0, 12)}_${account.password.slice(0, 4)}`,
+            creatorCode,
           },
         });
 
@@ -72,6 +91,8 @@ export async function POST(req: NextRequest) {
         results.push({
           email: account.email,
           username: account.username,
+          discordName: account.discordName,
+          creatorCode,
           status: "created",
         });
         created++;
