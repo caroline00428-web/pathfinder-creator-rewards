@@ -6,6 +6,8 @@ import { db } from "./db";
 declare module "next-auth" {
   interface User {
     id: string;
+    username: string;
+    email: string;
     role: string;
     creatorId?: string;
   }
@@ -23,6 +25,8 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     id: string;
+    username: string;
+    email: string;
     role: string;
     creatorId?: string;
   }
@@ -69,6 +73,8 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.username = user.username;
+        token.email = user.email;
         token.role = user.role;
         token.creatorId = user.creatorId;
       }
@@ -76,11 +82,11 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       session.user = {
-        id: token.id,
-        email: token.email ?? "",
-        username: token.name ?? "",
-        role: token.role,
-        creatorId: token.creatorId,
+        id: token.id as string,
+        email: token.email as string,
+        username: token.username as string,
+        role: token.role as string,
+        creatorId: token.creatorId as string | undefined,
       };
       return session;
     },
