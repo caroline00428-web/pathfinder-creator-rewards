@@ -25,11 +25,36 @@ export default function CSVBulkSendPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [dryRun, setDryRun] = useState(true);
+  const [fixLoading, setFixLoading] = useState(false);
+  const [fixResult, setFixResult] = useState<any>(null);
 
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files?.[0]) {
       setFile(e.target.files[0]);
       setResult(null);
+    }
+  }
+
+  async function fixPreviousSent() {
+    if (!confirm("This will create User accounts for all previously sent emails. Continue?")) {
+      return;
+    }
+
+    setFixLoading(true);
+    try {
+      const res = await fetch("/api/admin/csv-bulk-send/fix-previous", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const data = await res.json();
+      setFixResult(data);
+      console.log("Fix result:", data);
+    } catch (error: any) {
+      console.error("Error:", error);
+      setFixResult({ error: error.message || "Failed to fix previous emails" });
+    } finally {
+      setFixLoading(false);
     }
   }
 
@@ -80,6 +105,52 @@ export default function CSVBulkSendPage() {
   return (
     <div className="p-6 max-w-4xl">
       <h2 className="text-2xl font-bold mb-6">📧 Bulk Send Registration Emails</h2>
+
+      {/* Fix Previous Section */}
+      <div className="bg-yellow-50 rounded-xl shadow-sm border border-yellow-200 p-6 mb-6">
+        <h3 className="text-lg font-semibold mb-2 text-yellow-900">⚠️ Fix Previously Sent Emails</h3>
+        <p className="text-sm text-yellow-800 mb-4">If you sent emails before this update, players don't have User accounts yet. Click below to create them:</p>
+        <button
+          onClick={fixPreviousSent}
+          disabled={fixLoading}
+          className="px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-500 disabled:opacity-50"
+        >
+          {fixLoading ? "Fixing..." : "🔧 Fix Previous Sent Emails"}
+        </button>
+      </div>
+
+      {fixResult && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          {fixResult.error && (
+            <div className="bg-red-50 rounded border border-red-200 p-4 mb-4">
+              <p className="text-red-700">❌ Error: {fixResult.error}</p>
+            </div>
+          )}
+          {fixResult.summary && (
+            <div>
+              <h4 className="font-semibold mb-3">Fix Result:</h4>
+              <div className="grid grid-cols-4 gap-3 mb-4">
+                <div className="bg-gray-50 rounded p-3 text-center">
+                  <p className="text-xs text-gray-600">Total</p>
+                  <p className="text-xl font-bold">{fixResult.summary.total}</p>
+                </div>
+                <div className="bg-green-50 rounded p-3 text-center">
+                  <p className="text-xs text-gray-600">✅ Created</p>
+                  <p className="text-xl font-bold text-green-600">{fixResult.summary.created}</p>
+                </div>
+                <div className="bg-yellow-50 rounded p-3 text-center">
+                  <p className="text-xs text-gray-600">⏭️ Skipped</p>
+                  <p className="text-xl font-bold text-yellow-600">{fixResult.summary.skipped}</p>
+                </div>
+                <div className="bg-red-50 rounded p-3 text-center">
+                  <p className="text-xs text-gray-600">❌ Failed</p>
+                  <p className="text-xl font-bold text-red-600">{fixResult.summary.failed}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
         <h3 className="text-lg font-semibold mb-4">📤 Upload CSV File</h3>
