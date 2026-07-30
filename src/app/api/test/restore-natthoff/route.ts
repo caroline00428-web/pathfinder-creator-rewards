@@ -2,7 +2,45 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { db } from "@/lib/db";
-import { sendRegistrationEmail } from "@/lib/send-reward-email";
+import nodemailer from "nodemailer";
+
+async function sendEmail(
+  email: string,
+  username: string,
+  password: string,
+  creatorCode: string,
+  discordName: string
+) {
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  const text = `Welcome to the Galaxy Defense Creator Program!
+
+Your account has been successfully created. Here is your login information:
+
+Discord Username: ${discordName}
+Username: ${username}
+Password: ${password}
+Creator Code: ${creatorCode}
+
+Login URL: https://creator-reward-platform.vercel.app/login
+
+Please keep your login information safe. If you have any questions, please contact us.
+
+Galaxy Defense Creator Program`;
+
+  await transporter.sendMail({
+    from: process.env.GMAIL_USER,
+    to: email,
+    subject: "🎮 Galaxy Defense Creator Account - Login Information",
+    text,
+  });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -55,7 +93,7 @@ export async function POST(req: NextRequest) {
 
     // Send email
     try {
-      await sendRegistrationEmail(
+      await sendEmail(
         userData.email,
         userData.username,
         userData.password,
