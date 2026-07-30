@@ -41,36 +41,63 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        console.log("[AUTH] authorize() called");
+        console.log("[AUTH] credentials:", credentials ? "exists" : "null");
+
         if (!credentials?.username || !credentials?.password) {
+          console.log("[AUTH] Missing username or password");
           return null;
         }
 
-        const user = await db.user.findUnique({
-          where: { username: credentials.username },
-        });
+        console.log("[AUTH] Looking up user:", credentials.username);
 
-        if (!user) return null;
+        try {
+          const user = await db.user.findUnique({
+            where: { username: credentials.username },
+          });
 
-        const isValid = await bcrypt.compare(
-          credentials.password,
-          user.passwordHash
-        );
+          if (!user) {
+            console.log("[AUTH] User not found:", credentials.username);
+            return null;
+          }
 
-        if (!isValid) return null;
+          console.log("[AUTH] User found:", user.username, user.email);
 
-        // Get creator separately to avoid rewardScheme issue
-        const creator = await db.$queryRawUnsafe<any[]>(
-          `SELECT id FROM "Creator" WHERE userId = ? LIMIT 1`,
-          user.id
-        );
+          const isValid = await bcrypt.compare(
+            credentials.password,
+            user.passwordHash
+          );
 
-        return {
-          id: user.id,
-          email: user.email,
-          username: user.username,
-          role: user.role,
-          creatorId: creator?.[0]?.id ?? undefined,
-        };
+          if (!isValid) {
+            console.log("[AUTH] Password mismatch");
+            return null;
+          }
+
+          console.log("[AUTH] Password valid");
+
+          // Get creator separately to avoid rewardScheme issue
+          const creator = await db.$queryRawUnsafe<any[]>(
+            `SELECT id FROM "Creator" WHERE userId = ? LIMIT 1`,
+            user.id
+          );
+
+          console.log("[AUTH] Creator found:", creator?.[0]?.id ? "yes" : "no");
+
+          const result = {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            role: user.role,
+            creatorId: creator?.[0]?.id ?? undefined,
+          };
+
+          console.log("[AUTH] Authorization successful, returning:", result);
+          return result;
+        } catch (error: any) {
+          console.error("[AUTH] Exception in authorize():", error.message);
+          console.error("[AUTH] Full error:", error);
+          return null;
+        }
       },
     }),
   ],
