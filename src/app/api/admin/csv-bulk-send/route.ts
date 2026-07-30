@@ -59,11 +59,13 @@ export async function POST(req: NextRequest) {
   try {
     console.log(`[CSV] Processing ${csvData.length} records (dryRun: ${dryRun})`);
 
-    // Get unused passwords from CreatorAccount
-    const unusedAccounts = await db.creatorAccount.findMany({
-      where: { used: false },
-      orderBy: { createdAt: "asc" },
-    });
+    // Get unused passwords from CreatorAccount (use raw query to handle invalid dates)
+    const unusedAccounts = await db.$queryRawUnsafe<any[]>(`
+      SELECT id, username, password FROM CreatorAccount
+      WHERE used = false
+      ORDER BY id ASC
+      LIMIT 10000
+    `);
 
     console.log(`[CSV] Found ${unusedAccounts.length} unused passwords`);
 
@@ -117,11 +119,14 @@ export async function POST(req: NextRequest) {
           // Send email
           await sendRegistrationEmail(email, username, account.password, creatorCode, discordName);
 
-          // Mark password as used
-          await db.creatorAccount.update({
-            where: { id: account.id },
-            data: { used: true, usedAt: new Date(), email, discordName },
-          });
+          // Mark password as used with raw query
+          await db.$executeRawUnsafe(
+            `UPDATE CreatorAccount SET used = true, usedAt = ?, email = ?, discordName = ? WHERE id = ?`,
+            new Date(),
+            email,
+            discordName,
+            account.id
+          );
 
           console.log(`[CSV] ✅ Sent to ${email}`);
           results.push({
