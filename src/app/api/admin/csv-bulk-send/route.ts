@@ -19,25 +19,25 @@ async function sendRegistrationEmail(
     },
   });
 
-  const text = `欢迎加入 Galaxy Defense 创作者计划！
+  const text = `Welcome to the Galaxy Defense Creator Program!
 
-您的账户已创建完成，以下是您的登录信息：
+Your account has been successfully created. Here is your login information:
 
-Discord 用户名: ${discordName}
-用户名: ${username}
-密码: ${password}
-创作者代码: ${creatorCode}
+Discord Username: ${discordName}
+Username: ${username}
+Password: ${password}
+Creator Code: ${creatorCode}
 
-登录地址: https://creator-reward-platform.vercel.app/login
+Login URL: https://creator-reward-platform.vercel.app/login
 
-请妥善保管您的登录信息。如有问题，请联系我们。
+Please keep your login information safe. If you have any questions, please contact us.
 
 Galaxy Defense Creator Program`;
 
   const result = await transporter.sendMail({
     from: process.env.GMAIL_USER,
     to: email,
-    subject: "🎮 Galaxy Defense 创作者账户 - 登录信息",
+    subject: "🎮 Galaxy Defense Creator Account - Login Information",
     text,
   });
 

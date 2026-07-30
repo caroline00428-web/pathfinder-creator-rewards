@@ -35,7 +35,7 @@ export default function CSVBulkSendPage() {
 
   async function processCSV() {
     if (!file) {
-      alert("请选择 CSV 文件");
+      alert("Please select a CSV file");
       return;
     }
 
@@ -62,7 +62,7 @@ export default function CSVBulkSendPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setResult({ error: data.error || "API 错误" });
+        setResult({ error: data.error || "API Error" });
         console.error("API Error:", data);
         return;
       }
@@ -71,7 +71,7 @@ export default function CSVBulkSendPage() {
       console.log("Result:", data);
     } catch (error: any) {
       console.error("Error:", error);
-      setResult({ error: error.message || "处理 CSV 失败" });
+      setResult({ error: error.message || "Failed to process CSV" });
     } finally {
       setLoading(false);
     }
@@ -79,10 +79,10 @@ export default function CSVBulkSendPage() {
 
   return (
     <div className="p-6 max-w-4xl">
-      <h2 className="text-2xl font-bold mb-6">📧 CSV 批量发送注册邮件</h2>
+      <h2 className="text-2xl font-bold mb-6">📧 Bulk Send Registration Emails</h2>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-        <h3 className="text-lg font-semibold mb-4">📤 上传表格</h3>
+        <h3 className="text-lg font-semibold mb-4">📤 Upload CSV File</h3>
 
         <div className="mb-4">
           <input
@@ -103,7 +103,7 @@ export default function CSVBulkSendPage() {
             className="rounded"
           />
           <label htmlFor="dryRun" className="text-sm">
-            👁️ 预览模式（不发邮件）
+            👁️ Preview Mode (no email sent)
           </label>
         </div>
 
@@ -112,7 +112,7 @@ export default function CSVBulkSendPage() {
           disabled={loading || !file}
           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50"
         >
-          {loading ? "处理中..." : dryRun ? "👁️ 预览" : "🚀 正式发送"}
+          {loading ? "Processing..." : dryRun ? "👁️ Preview" : "🚀 Send Now"}
         </button>
       </div>
 
@@ -120,7 +120,7 @@ export default function CSVBulkSendPage() {
         <div className="space-y-6">
           {result.error && (
             <div className="bg-red-50 rounded-xl shadow-sm border border-red-200 p-6">
-              <h3 className="text-lg font-semibold text-red-900 mb-2">❌ 错误</h3>
+              <h3 className="text-lg font-semibold text-red-900 mb-2">❌ Error</h3>
               <p className="text-red-700">{result.error}</p>
             </div>
           )}
@@ -129,26 +129,26 @@ export default function CSVBulkSendPage() {
             <>
               {/* Summary */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold mb-4">📊 统计</h3>
+            <h3 className="text-lg font-semibold mb-4">📊 Summary</h3>
             <div className="grid grid-cols-5 gap-4 mb-4">
               <div className="bg-gray-50 rounded p-4 text-center">
-                <p className="text-sm text-gray-600">总数</p>
+                <p className="text-sm text-gray-600">Total</p>
                 <p className="text-2xl font-bold">{result.summary.total}</p>
               </div>
               <div className="bg-blue-50 rounded p-4 text-center">
-                <p className="text-sm text-gray-600">预览</p>
+                <p className="text-sm text-gray-600">Preview</p>
                 <p className="text-2xl font-bold text-blue-600">{result.summary.would_send}</p>
               </div>
               <div className="bg-green-50 rounded p-4 text-center">
-                <p className="text-sm text-gray-600">✅ 已发</p>
+                <p className="text-sm text-gray-600">✅ Sent</p>
                 <p className="text-2xl font-bold text-green-600">{result.summary.sent}</p>
               </div>
               <div className="bg-red-50 rounded p-4 text-center">
-                <p className="text-sm text-gray-600">❌ 失败</p>
+                <p className="text-sm text-gray-600">❌ Failed</p>
                 <p className="text-2xl font-bold text-red-600">{result.summary.failed}</p>
               </div>
               <div className="bg-yellow-50 rounded p-4 text-center">
-                <p className="text-sm text-gray-600">⏭️ 跳过</p>
+                <p className="text-sm text-gray-600">⏭️ Skipped</p>
                 <p className="text-2xl font-bold text-yellow-600">{result.summary.skipped}</p>
               </div>
             </div>
@@ -158,14 +158,14 @@ export default function CSVBulkSendPage() {
                 onClick={() => setDryRun(false)}
                 className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500"
               >
-                ✉️ 确认发送这 {result.summary.would_send} 人
+                ✉️ Confirm Send to {result.summary.would_send} People
               </button>
             )}
           </div>
 
           {/* Results */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold mb-4">📋 详情</h3>
+            <h3 className="text-lg font-semibold mb-4">📋 Details</h3>
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {result.results.map((r: any, i: number) => (
                 <div
@@ -182,12 +182,12 @@ export default function CSVBulkSendPage() {
                 >
                   <p className="font-medium">{r.discordName}</p>
                   <p className="text-xs text-gray-600">{r.email}</p>
-                  {r.username && <p className="text-xs text-gray-500">用户名: {r.username}</p>}
-                  {r.creatorCode && <p className="text-xs text-gray-500">创作者代码: {r.creatorCode}</p>}
+                  {r.username && <p className="text-xs text-gray-500">Username: {r.username}</p>}
+                  {r.creatorCode && <p className="text-xs text-gray-500">Creator Code: {r.creatorCode}</p>}
                   {r.status === "would_send" && (
-                    <p className="text-xs text-blue-700">👁️ 预览：会发送邮件</p>
+                    <p className="text-xs text-blue-700">👁️ Preview: Will send email</p>
                   )}
-                  {r.status === "sent" && <p className="text-xs text-green-700">✅ 已发送</p>}
+                  {r.status === "sent" && <p className="text-xs text-green-700">✅ Sent</p>}
                   {r.status === "failed" && (
                     <p className="text-xs text-red-700">❌ {r.reason || r.error}</p>
                   )}
