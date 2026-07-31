@@ -59,12 +59,24 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Credit wallet if approving from PENDING
+        // Create diamond order (not wallet credit) if approving from PENDING
         if (newStatus === "APPROVED" && app.status === "PENDING") {
-          await tx.creditWallet.upsert({
-            where: { creatorId: app.creatorId },
-            create: { creatorId: app.creatorId, balance: app.reward.diamonds },
-            update: { balance: { increment: app.reward.diamonds } },
+          const creatorData = await tx.creator.findUnique({ where: { id: app.creatorId } });
+          await tx.rewardOrder.create({
+            data: {
+              creatorId: app.creatorId,
+              playerId: creatorData?.playerId || "PENDING",
+              totalCreditCost: app.reward.diamonds,
+              status: "PENDING",
+              items: {
+                create: {
+                  gameItemId: `SPECIAL_${app.reward.rewardType}`,
+                  itemName: `💎 ${app.reward.name}`,
+                  quantity: app.reward.diamonds,
+                  creditCost: 0,
+                },
+              },
+            },
           });
           await tx.creditTransaction.create({
             data: {
@@ -72,6 +84,7 @@ export async function POST(req: NextRequest) {
               amount: app.reward.diamonds,
               type: "SPECIAL_REWARD",
               reason: `${app.reward.name} — ${app.reward.rewardType}`,
+              relatedOrderId: undefined,
             },
           });
         }
