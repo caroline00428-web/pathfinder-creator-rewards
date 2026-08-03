@@ -122,6 +122,7 @@ export async function claimMilestone(
 
   // Perform claim in a transaction
   try {
+    let pointsAmount = 0;
     const result = await db.$transaction(async (tx) => {
       // Create claim
       const claim = await tx.milestoneClaim.create({
@@ -137,7 +138,7 @@ export async function claimMilestone(
       // POINTS: credit wallet (1 point = $1 USD, diamonds/100)
       // DIAMOND: record as order for admin manual export
       if (rewardScheme === "POINTS") {
-        const pointsAmount = Math.floor(milestone.creditsAwarded / 100); // e.g. 300 diamonds → $3
+        pointsAmount = Math.floor(milestone.creditsAwarded / 100); // e.g. 300 diamonds → $3
         await tx.creditWallet.upsert({
           where: { creatorId },
           create: { creatorId, balance: pointsAmount },
@@ -178,7 +179,7 @@ export async function claimMilestone(
 
     return {
       success: true,
-      creditsAwarded: result.creditsAwarded,
+      creditsAwarded: rewardScheme === "POINTS" ? pointsAmount : result.creditsAwarded,
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Claim failed";
