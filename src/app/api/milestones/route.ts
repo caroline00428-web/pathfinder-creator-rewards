@@ -9,13 +9,12 @@ export async function GET(req: NextRequest) {
     const platform = searchParams.get("platform");
     const campaignId = searchParams.get("campaignId");
 
-    const where: any = { active: 1 }; // SQLite 使用 1 而不是 true
+    const where: any = { active: true };
     if (platform) where.platform = platform;
     if (campaignId) where.campaignId = campaignId;
 
     const milestones = await db.milestone.findMany({
       where,
-      include: { campaign: { select: { name: true } } },
       orderBy: [{ platform: "asc" }, { viewThreshold: "asc" }],
     });
 
