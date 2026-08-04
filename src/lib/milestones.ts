@@ -113,6 +113,7 @@ export async function claimMilestone(
   // Check for duplicate claim (now unique per creator+milestone)
   const existing = await db.milestoneClaim.findFirst({
     where: { creatorId, milestoneId },
+    select: { id: true }, // Only select id to avoid claimedAt conversion
   });
 
   if (existing) {
