@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    // Let Prisma generate ID and timestamp, then query with raw SQL to avoid datetime conversion
     const milestone = await db.milestone.create({
       data: {
         campaignId: campaignId || null,
@@ -57,7 +58,13 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(milestone, { status: 201 });
+    // Use raw SQL to return to avoid Prisma createdAt conversion error
+    const result = await db.$queryRawUnsafe<any[]>(
+      `SELECT id, platform, viewThreshold, creditsAwarded, active, campaignId FROM Milestone WHERE id = ?`,
+      milestone.id
+    );
+
+    return NextResponse.json(result[0], { status: 201 });
   } catch (error: any) {
     console.error("Create milestone error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

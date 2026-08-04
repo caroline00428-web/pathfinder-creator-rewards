@@ -14,11 +14,35 @@ export async function PUT(
   }
 
   const { viewThreshold, creditsAwarded, active } = await req.json();
-  const data: any = {};
-  if (viewThreshold !== undefined) data.viewThreshold = viewThreshold;
-  if (creditsAwarded !== undefined) data.creditsAwarded = creditsAwarded;
-  if (active !== undefined) data.active = active;
+  const updates: string[] = [];
+  const params: any[] = [];
 
-  const milestone = await db.milestone.update({ where: { id }, data });
-  return NextResponse.json(milestone);
+  if (viewThreshold !== undefined) {
+    updates.push("viewThreshold = ?");
+    params.push(viewThreshold);
+  }
+  if (creditsAwarded !== undefined) {
+    updates.push("creditsAwarded = ?");
+    params.push(creditsAwarded);
+  }
+  if (active !== undefined) {
+    updates.push("active = ?");
+    params.push(active ? 1 : 0);
+  }
+
+  if (updates.length === 0) {
+    return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+  }
+
+  params.push(id);
+  const updateQuery = `UPDATE Milestone SET ${updates.join(", ")} WHERE id = ?`;
+  await db.$executeRawUnsafe(updateQuery, ...params);
+
+  // Fetch updated milestone with raw SQL to avoid datetime conversion
+  const result = await db.$queryRawUnsafe<any[]>(
+    `SELECT id, platform, viewThreshold, creditsAwarded, active, campaignId FROM Milestone WHERE id = ?`,
+    id
+  );
+
+  return NextResponse.json(result[0] || null);
 }
