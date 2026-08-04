@@ -14,11 +14,12 @@ export async function GET(req: NextRequest) {
   const where: any = {};
   if (platform) where.platform = platform;
 
-  // Non-admin: filter to own videos
+  // Non-admin: filter to own videos using session.user.creatorId
   if (session.user.role !== "ADMIN") {
-    const creator = await getOrCreateCreator();
-    if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 403 });
-    where.creatorId = creator.id;
+    if (!session.user.creatorId) {
+      return NextResponse.json({ error: "Creator not found" }, { status: 403 });
+    }
+    where.creatorId = session.user.creatorId;
   }
 
   const videos = await db.video.findMany({
