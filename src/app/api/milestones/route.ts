@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const platform = searchParams.get("platform");
     const campaignId = searchParams.get("campaignId");
 
-    const where: any = { active: true };
+    const where: any = { active: 1 }; // SQLite: 1 = true, 0 = false
     if (platform) where.platform = platform;
     if (campaignId) where.campaignId = campaignId;
 
