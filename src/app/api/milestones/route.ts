@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const platform = searchParams.get("platform");
     const campaignId = searchParams.get("campaignId");
 
-    const where: any = { active: true }; // Prisma 会自动转换为 SQLite 的 1
+    const where: any = { active: true }; // Prisma boolean, not int
     if (platform) where.platform = platform;
     if (campaignId) where.campaignId = campaignId;
 
@@ -23,7 +23,6 @@ export async function GET(req: NextRequest) {
     console.error("Milestones GET error:", {
       message: error.message,
       code: error.code,
-      stack: error.stack,
     });
     return NextResponse.json(
       { error: error.message || "Failed to fetch milestones" },
