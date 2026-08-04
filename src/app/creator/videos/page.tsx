@@ -46,12 +46,16 @@ export default function MyVideosPage() {
   function fetchData() {
     setLoading(true);
     const url = filter ? `/api/videos?platform=${filter}` : "/api/videos";
-    Promise.all([
+    Promise.allSettled([
       fetch(url).then(r => r.json()),
       fetch("/api/milestones").then(r => r.json()),
-    ]).then(([v, m]) => {
-      setVideos(v);
-      setMilestones(m);
+    ]).then(([videosResult, milestonesResult]) => {
+      if (videosResult.status === 'fulfilled') {
+        setVideos(videosResult.value);
+      }
+      if (milestonesResult.status === 'fulfilled') {
+        setMilestones(milestonesResult.value);
+      }
     }).finally(() => setLoading(false));
   }
 
