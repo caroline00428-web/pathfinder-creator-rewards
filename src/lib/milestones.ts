@@ -75,9 +75,11 @@ export async function claimMilestone(
   }
 
   // Get milestone
-  const milestone = await db.milestone.findUnique({
-    where: { id: milestoneId },
-  });
+  const milestones = await db.$queryRawUnsafe<any[]>(
+    `SELECT id, platform, viewThreshold, creditsAwarded, active, campaignId FROM Milestone WHERE id = ?`,
+    milestoneId
+  );
+  const milestone = milestones[0];
 
   if (!milestone || !milestone.active) {
     return { success: false, error: "Milestone not found or inactive" };
