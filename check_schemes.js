@@ -7,23 +7,18 @@ const client = createClient({
 
 (async () => {
   try {
-    // 查询 Creator 总数
-    const countResult = await client.execute(`SELECT COUNT(*) as count FROM Creator`);
-    const count = countResult.rows[0]?.count || 0;
-    console.log(`✅ Creator 总数: ${count}\n`);
-
-    // 查询前 10 个 creator
-    console.log("前 10 个 Creator:");
     const result = await client.execute(
-      `SELECT c.id, c.displayName, c.creatorCode, cw.balance,
-              (SELECT SUM(viewCount) FROM Video WHERE creatorId = c.id) as totalViews
-       FROM Creator c
-       LEFT JOIN CreditWallet cw ON c.id = cw.creatorId
-       LIMIT 10`
+      `SELECT rewardScheme, COUNT(*) as count FROM Creator GROUP BY rewardScheme`
     );
-    result.rows.forEach((r, i) => {
-      console.log(`  ${i+1}. ${r.displayName} | 点数: ${r.balance || 0} | 浏览: ${r.totalViews || 0}`);
-    });
+    console.log("rewardScheme 分布:");
+    console.log(result.rows);
+
+    // 显示前 5 个 Creator 的详细信息
+    const detail = await client.execute(
+      `SELECT id, displayName, rewardScheme FROM Creator LIMIT 5`
+    );
+    console.log("\n前 5 个 Creator:");
+    console.log(detail.rows);
   } catch (e) {
     console.error("错误:", e.message);
   } finally {

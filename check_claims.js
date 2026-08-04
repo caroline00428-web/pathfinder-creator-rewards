@@ -7,23 +7,24 @@ const client = createClient({
 
 (async () => {
   try {
-    // 查询 Creator 总数
-    const countResult = await client.execute(`SELECT COUNT(*) as count FROM Creator`);
-    const count = countResult.rows[0]?.count || 0;
-    console.log(`✅ Creator 总数: ${count}\n`);
-
-    // 查询前 10 个 creator
-    console.log("前 10 个 Creator:");
+    console.log("=== MilestoneClaim 详情 ===\n");
     const result = await client.execute(
-      `SELECT c.id, c.displayName, c.creatorCode, cw.balance,
-              (SELECT SUM(viewCount) FROM Video WHERE creatorId = c.id) as totalViews
-       FROM Creator c
-       LEFT JOIN CreditWallet cw ON c.id = cw.creatorId
+      `SELECT mc.id, mc.creatorId, c.displayName, c.rewardScheme, mc.creditsAwarded, m.viewThreshold
+       FROM MilestoneClaim mc
+       JOIN Creator c ON mc.creatorId = c.id
+       JOIN Milestone m ON mc.milestoneId = m.id`
+    );
+    console.log(result.rows);
+
+    console.log("\n=== CreditTransaction 详情 ===\n");
+    const txResult = await client.execute(
+      `SELECT ct.id, ct.creatorId, c.displayName, ct.amount, ct.type, ct.reason, ct.createdAt
+       FROM CreditTransaction ct
+       JOIN Creator c ON ct.creatorId = c.id
+       ORDER BY ct.createdAt DESC
        LIMIT 10`
     );
-    result.rows.forEach((r, i) => {
-      console.log(`  ${i+1}. ${r.displayName} | 点数: ${r.balance || 0} | 浏览: ${r.totalViews || 0}`);
-    });
+    console.log(txResult.rows);
   } catch (e) {
     console.error("错误:", e.message);
   } finally {

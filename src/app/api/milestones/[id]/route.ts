@@ -15,28 +15,28 @@ export async function PUT(
 
   const { viewThreshold, creditsAwarded, active } = await req.json();
   const updates: string[] = [];
-  const params: any[] = [];
+  const queryParams: any[] = [];
 
   if (viewThreshold !== undefined) {
     updates.push("viewThreshold = ?");
-    params.push(viewThreshold);
+    queryParams.push(viewThreshold);
   }
   if (creditsAwarded !== undefined) {
     updates.push("creditsAwarded = ?");
-    params.push(creditsAwarded);
+    queryParams.push(creditsAwarded);
   }
   if (active !== undefined) {
     updates.push("active = ?");
-    params.push(active ? 1 : 0);
+    queryParams.push(active ? 1 : 0);
   }
 
   if (updates.length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
   }
 
-  params.push(id);
+  queryParams.push(id);
   const updateQuery = `UPDATE Milestone SET ${updates.join(", ")} WHERE id = ?`;
-  await db.$executeRawUnsafe(updateQuery, ...params);
+  await db.$executeRawUnsafe(updateQuery, ...queryParams);
 
   // Fetch updated milestone with raw SQL to avoid datetime conversion
   const result = await db.$queryRawUnsafe<any[]>(

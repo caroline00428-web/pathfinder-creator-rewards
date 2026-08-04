@@ -41,28 +41,22 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        console.log("[AUTH_INIT] CredentialsProvider.authorize called at:", new Date().toISOString());
-        console.log("[AUTH] authorize() called");
-        console.log("[AUTH] credentials:", credentials ? "exists" : "null");
-
         if (!credentials?.username || !credentials?.password) {
-          console.log("[AUTH] Missing username or password");
           return null;
         }
 
-        console.log("[AUTH] Looking up user:", credentials.username);
-
         try {
-          const user = await db.user.findUnique({
-            where: { username: credentials.username },
-          });
+          // 使用 raw SQL（与正常工作的 debug 端点一致），避免 Prisma ORM + LibSQL adapter 的兼容问题
+          const users = await db.$queryRawUnsafe<any[]>(
+            `SELECT id, username, email, "passwordHash", role FROM "User" WHERE username = ?`,
+            credentials.username
+          );
 
-          if (!user) {
-            console.log("[AUTH] User not found:", credentials.username);
+          if (!users || users.length === 0) {
             return null;
           }
 
-          console.log("[AUTH] User found:", user.username, user.email);
+          const user = users[0];
 
           const isValid = await bcrypt.compare(
             credentials.password,
@@ -70,43 +64,29 @@ export const authOptions: NextAuthOptions = {
           );
 
           if (!isValid) {
-            console.log("[AUTH] Password mismatch");
             return null;
           }
 
-          console.log("[AUTH] Password valid");
-
-          // 获取关联的 Creator（使用 Prisma Relation API，避免 raw SQL 在 LibSQL 适配器下报错）
+          // 获取关联的 Creator
           let creatorId: string | undefined;
           try {
-            const userWithCreator = await db.user.findUnique({
-              where: { id: user.id },
-              select: {
-                creator: {
-                  select: { id: true },
-                },
-              },
-            });
-            creatorId = userWithCreator?.creator?.id ?? undefined;
-            console.log("[AUTH] Creator lookup:", creatorId ? `found (${creatorId})` : "none");
-          } catch (creatorErr: any) {
-            // Creator 查询失败不阻塞登录 —— 用户密码已验证通过
-            console.warn("[AUTH] Creator lookup failed (non-blocking):", creatorErr.message);
+            const creators = await db.$queryRawUnsafe<any[]>(
+              `SELECT id FROM "Creator" WHERE "userId" = ? LIMIT 1`,
+              user.id
+            );
+            creatorId = creators?.[0]?.id ?? undefined;
+          } catch {
+            // Creator 查询失败不阻塞登录
           }
 
-          const result = {
+          return {
             id: user.id,
             email: user.email,
             username: user.username,
             role: user.role,
             creatorId,
           };
-
-          console.log("[AUTH] Authorization successful, returning:", result);
-          return result;
-        } catch (error: any) {
-          console.error("[AUTH] Exception in authorize():", error.message);
-          console.error("[AUTH] Full error:", error);
+        } catch {
           return null;
         }
       },
