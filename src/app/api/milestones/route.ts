@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const platform = searchParams.get("platform");
     const campaignId = searchParams.get("campaignId");
 
-    const where: any = { active: 1 }; // SQLite: 1 = true, 0 = false
+    const where: any = { active: true }; // Prisma 会自动转换为 SQLite 的 1
     if (platform) where.platform = platform;
     if (campaignId) where.campaignId = campaignId;
 
@@ -20,9 +20,13 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(milestones);
   } catch (error: any) {
-    console.error("Milestones API error:", error);
+    console.error("Milestones GET error:", {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+    });
     return NextResponse.json(
-      { error: "Failed to fetch milestones", details: error.message },
+      { error: error.message || "Failed to fetch milestones" },
       { status: 500 }
     );
   }
