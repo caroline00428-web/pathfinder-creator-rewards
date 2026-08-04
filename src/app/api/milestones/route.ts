@@ -17,6 +17,14 @@ export async function GET(req: NextRequest) {
 
     const milestones = await db.milestone.findMany({
       where,
+      select: {
+        id: true,
+        platform: true,
+        viewThreshold: true,
+        creditsAwarded: true,
+        active: true,
+        campaignId: true,
+      },
       orderBy: [{ platform: "asc" }, { viewThreshold: "asc" }],
     });
 
