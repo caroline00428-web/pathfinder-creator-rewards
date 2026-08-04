@@ -9,24 +9,22 @@ export async function GET(req: NextRequest) {
     const platform = searchParams.get("platform");
     const campaignId = searchParams.get("campaignId");
 
-    // Build filter
-    const where: any = {};
-    if (platform) where.platform = platform;
-    if (campaignId) where.campaignId = campaignId;
-    where.active = true;
+    // Use raw SQL to avoid Prisma datetime conversion errors
+    let query = `SELECT id, platform, viewThreshold, creditsAwarded, active, campaignId FROM Milestone WHERE active = 1`;
+    const params: any[] = [];
 
-    const milestones = await db.milestone.findMany({
-      where,
-      select: {
-        id: true,
-        platform: true,
-        viewThreshold: true,
-        creditsAwarded: true,
-        active: true,
-        campaignId: true,
-      },
-      orderBy: [{ platform: "asc" }, { viewThreshold: "asc" }],
-    });
+    if (platform) {
+      query += ` AND platform = ?`;
+      params.push(platform);
+    }
+    if (campaignId) {
+      query += ` AND campaignId = ?`;
+      params.push(campaignId);
+    }
+
+    query += ` ORDER BY platform ASC, viewThreshold ASC`;
+
+    const milestones = await db.$queryRawUnsafe(query, ...params);
 
     return NextResponse.json(milestones);
   } catch (error: any) {
