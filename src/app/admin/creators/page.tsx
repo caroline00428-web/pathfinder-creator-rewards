@@ -14,6 +14,7 @@ interface Creator {
   user: { username: string; email: string };
   wallet: { balance: number } | null;
   _count: { videos: number; orders: number };
+  totalViews: number;
 }
 
 export default function AdminCreatorsPage() {
@@ -44,7 +45,7 @@ export default function AdminCreatorsPage() {
       setForm({ username: "", email: "", password: "", displayName: "", creatorCode: "" });
       router.refresh();
       const data = await res.json();
-      setCreators((prev) => [{ ...data, user: { username: data.username, email: "" }, wallet: { balance: 0 }, _count: { videos: 0, orders: 0 }, playerId: null, playerIdLocked: false, status: "ACTIVE" }, ...prev]);
+      setCreators((prev) => [{ ...data, user: { username: data.username, email: "" }, wallet: { balance: 0 }, _count: { videos: 0, orders: 0 }, playerId: null, playerIdLocked: false, status: "ACTIVE", totalViews: 0 }, ...prev]);
     } else {
       const err = await res.json();
       setError(err.error || "Failed to create creator");
@@ -109,7 +110,8 @@ export default function AdminCreatorsPage() {
               <th className="px-4 py-3 font-medium text-gray-500">Creator</th>
               <th className="px-4 py-3 font-medium text-gray-500">Code</th>
               <th className="px-4 py-3 font-medium text-gray-500">Player ID</th>
-              <th className="px-4 py-3 font-medium text-gray-500">Credits</th>
+              <th className="px-4 py-3 font-medium text-gray-500">获得点数</th>
+              <th className="px-4 py-3 font-medium text-gray-500">总浏览量</th>
               <th className="px-4 py-3 font-medium text-gray-500">Videos</th>
               <th className="px-4 py-3 font-medium text-gray-500">Orders</th>
               <th className="px-4 py-3 font-medium text-gray-500">Status</th>
@@ -131,7 +133,8 @@ export default function AdminCreatorsPage() {
                     <span className="text-xs text-gray-400">Not set</span>
                   )}
                 </td>
-                <td className="px-4 py-3 font-medium">{c.wallet?.balance?.toLocaleString() ?? 0}</td>
+                <td className="px-4 py-3 font-medium text-blue-600">{c.wallet?.balance?.toLocaleString() ?? 0}</td>
+                <td className="px-4 py-3 font-medium">{c.totalViews?.toLocaleString() ?? 0}</td>
                 <td className="px-4 py-3">{c._count.videos}</td>
                 <td className="px-4 py-3">{c._count.orders}</td>
                 <td className="px-4 py-3">

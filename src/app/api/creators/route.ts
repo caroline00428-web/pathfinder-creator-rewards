@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -14,11 +16,19 @@ export async function GET() {
       user: { select: { username: true, email: true } },
       wallet: { select: { balance: true } },
       _count: { select: { videos: true, orders: true } },
+      videos: { select: { viewCount: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(creators);
+  // 计算每个 creator 的总浏览量
+  const creatorsWithViews = creators.map((creator) => {
+    const totalViews = creator.videos.reduce((sum, v) => sum + v.viewCount, 0);
+    const { videos, ...rest } = creator;
+    return { ...rest, totalViews };
+  });
+
+  return NextResponse.json(creatorsWithViews);
 }
 
 export async function POST(req: NextRequest) {
@@ -30,7 +40,10 @@ export async function POST(req: NextRequest) {
   const { username, email, password, displayName, creatorCode } = await req.json();
 
   if (!username || !email || !password || !displayName || !creatorCode) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing required fields" },
+      { status: 400 }
+    );
   }
 
   const existing = await db.user.findFirst({
@@ -40,7 +53,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Username or email already exists" }, { status: 409 });
   }
 
-  const bcrypt = (await import("bcryptjs")).default;
   const passwordHash = await bcrypt.hash(password, 12);
 
   const result = await db.$transaction(async (tx) => {
@@ -49,20 +61,24 @@ export async function POST(req: NextRequest) {
     });
 
     const creator = await tx.creator.create({
-      data: { userId: user.id, displayName, creatorCode },
+      data: { userId: user.id, displayName, creatorCode, status: "ACTIVE" },
+      include: {
+        user: { select: { username: true, email: true } },
+        wallet: { select: { balance: true } },
+        _count: { select: { videos: true, orders: true } },
+        videos: { select: { viewCount: true } },
+      },
     });
 
     await tx.creditWallet.create({
       data: { creatorId: creator.id },
     });
 
-    return { user, creator };
+    return creator;
   });
 
-  return NextResponse.json({
-    id: result.creator.id,
-    username: result.user.username,
-    displayName: result.creator.displayName,
-    creatorCode: result.creator.creatorCode,
-  }, { status: 201 });
+  // 计算总浏览量
+  const totalViews = result.videos.reduce((sum, v) => sum + v.viewCount, 0);
+  const { videos, ...rest } = result;
+  return NextResponse.json({ ...rest, totalViews }, { status: 201 });
 }
