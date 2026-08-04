@@ -4,21 +4,29 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const platform = searchParams.get("platform");
-  const campaignId = searchParams.get("campaignId");
+  try {
+    const { searchParams } = new URL(req.url);
+    const platform = searchParams.get("platform");
+    const campaignId = searchParams.get("campaignId");
 
-  const where: any = { active: true };
-  if (platform) where.platform = platform;
-  if (campaignId) where.campaignId = campaignId;
+    const where: any = { active: 1 }; // SQLite 使用 1 而不是 true
+    if (platform) where.platform = platform;
+    if (campaignId) where.campaignId = campaignId;
 
-  const milestones = await db.milestone.findMany({
-    where,
-    include: { campaign: { select: { name: true } } },
-    orderBy: [{ platform: "asc" }, { viewThreshold: "asc" }],
-  });
+    const milestones = await db.milestone.findMany({
+      where,
+      include: { campaign: { select: { name: true } } },
+      orderBy: [{ platform: "asc" }, { viewThreshold: "asc" }],
+    });
 
-  return NextResponse.json(milestones);
+    return NextResponse.json(milestones);
+  } catch (error: any) {
+    console.error("Milestones API error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch milestones", details: error.message },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {
