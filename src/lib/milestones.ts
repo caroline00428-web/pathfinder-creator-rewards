@@ -32,18 +32,15 @@ export async function getClaimableMilestones(
   });
   const totalViews = aggregate._sum.viewCount ?? 0;
 
-  // Get all active milestones for the platform
-  const milestones = await db.milestone.findMany({
-    where: {
-      platform,
-      active: true,
-      OR: [
-        { campaignId },
-        { campaignId: null }, // global milestones
-      ],
-    },
-    orderBy: { viewThreshold: "asc" },
-  });
+  // Get all active milestones for the platform using raw SQL to avoid createdAt conversion error
+  const milestones = await db.$queryRawUnsafe<any[]>(
+    `SELECT id, platform, viewThreshold, creditsAwarded, active, campaignId
+     FROM Milestone
+     WHERE platform = ? AND active = 1 AND (campaignId = ? OR campaignId IS NULL)
+     ORDER BY viewThreshold ASC`,
+    platform,
+    campaignId
+  );
 
   // Get claimed milestones for this creator (unique per creator+milestone)
   const claimed = await db.milestoneClaim.findMany({
